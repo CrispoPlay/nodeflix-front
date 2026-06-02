@@ -34,7 +34,19 @@ export const GENRE_OPTIONS: GenreOption[] = [
     name: 'Fantasia',
     mood: 'Magia y linajes',
     accent: '#a78bfa',
-    queries: ['Game of Thrones', 'The Witcher', 'House of the Dragon']
+    queries: [
+      'Game of Thrones',
+      'The Witcher',
+      'House of the Dragon',
+      'His Dark Materials',
+      'The Wheel of Time',
+      'The Lord of the Rings The Rings of Power',
+      'Shadow and Bone',
+      'Merlin',
+      'Once Upon a Time',
+      'The Sandman',
+      'American Gods'
+    ]
   },
   {
     id: 'mystery',
@@ -55,7 +67,19 @@ export const GENRE_OPTIONS: GenreOption[] = [
     name: 'Anime',
     mood: 'Arcos memorables',
     accent: '#34d399',
-    queries: ['One Piece', 'Attack on Titan', 'Demon Slayer']
+    queries: [
+      'One Piece',
+      'Attack on Titan',
+      'Demon Slayer',
+      'Jujutsu Kaisen',
+      'Naruto Shippuden',
+      'Death Note',
+      'My Hero Academia',
+      'Chainsaw Man',
+      'Spy x Family',
+      'Dragon Ball Super',
+      'Fullmetal Alchemist Brotherhood'
+    ]
   },
   {
     id: 'romance',

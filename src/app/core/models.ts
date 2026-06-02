@@ -32,6 +32,7 @@ export interface SerieSummary {
   descripcion?: string | null;
   fecha_salida?: string | null;
   youtube_key?: string | null;
+  plataformas?: string[];
   score?: number;
 }
 

@@ -33,13 +33,29 @@
       <h3 class="mt-1 line-clamp-2 text-sm font-semibold leading-tight text-white">{{ serie().titulo }}</h3>
     </div>
 
-    <div
-      class="absolute inset-x-2 bottom-2 z-20 rounded-md bg-black/90 p-3 opacity-0 shadow-2xl ring-1 ring-white/15 transition duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
-    >
+    <div class="absolute inset-x-2 bottom-2 z-20 max-h-[92%] overflow-hidden rounded-md bg-black/90 opacity-0 shadow-2xl ring-1 ring-white/15 transition duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
+      @if (previewUrl()) {
+        <div class="aspect-video w-full overflow-hidden rounded-t-md bg-black">
+          <iframe
+            class="h-full w-full"
+            [src]="previewUrl()"
+            [title]="detail()?.titulo || serie().titulo"
+            allow="autoplay; encrypted-media; picture-in-picture"
+          ></iframe>
+        </div>
+      }
+      <div class="p-3">
       <div class="flex items-center justify-between gap-2">
         <h4 class="line-clamp-1 text-sm font-semibold text-white">{{ detail()?.titulo || serie().titulo }}</h4>
         <svg lucideInfo class="size-4 shrink-0 text-cyan-300"></svg>
       </div>
+      @if (platforms().length) {
+        <div class="mt-2 flex flex-wrap gap-1">
+          @for (platform of platforms(); track platform) {
+            <span class="rounded-sm bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-100">{{ platform }}</span>
+          }
+        </div>
+      }
       <p class="mt-2 line-clamp-4 text-xs leading-5 text-neutral-300">
         {{ detail()?.descripcion || serie().descripcion || 'Informacion disponible al cargar detalles.' }}
       </p>
@@ -80,6 +96,7 @@
           </button>
         </div>
       }
+      </div>
     </div>
 
     @if (detail()?.youtube_key) {

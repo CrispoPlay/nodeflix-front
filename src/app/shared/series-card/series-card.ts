@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, input, output, signal } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { firstValueFrom } from 'rxjs';
 import {
   LucideCirclePlay,
@@ -31,8 +32,13 @@ export class SeriesCard {
   });
 
   readonly genres = computed(() => this.detail()?.generos?.map((genre) => genre.name).slice(0, 3).join(' / ') ?? '');
+  readonly previewUrl = computed(() => this.safeYoutubeUrl(this.detail()?.youtube_key ?? this.serie().youtube_key));
+  readonly platforms = computed(() => this.resolvePlatforms());
 
-  constructor(private readonly series: SeriesService) {}
+  constructor(
+    private readonly series: SeriesService,
+    private readonly sanitizer: DomSanitizer
+  ) {}
 
   async loadDetails(): Promise<void> {
     if (this.detail() || this.loading()) {
@@ -52,5 +58,42 @@ export class SeriesCard {
   send(event: Event, type: InteractionType): void {
     event.stopPropagation();
     this.interaction.emit({ serie: this.serie(), type });
+  }
+
+  private safeYoutubeUrl(key: string | null | undefined): SafeResourceUrl | null {
+    if (!key || !/^[\w-]+$/.test(key)) {
+      return null;
+    }
+
+    return this.sanitizer.bypassSecurityTrustResourceUrl(
+      `https://www.youtube.com/embed/${key}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1`
+    );
+  }
+
+  private resolvePlatforms(): string[] {
+    const explicit = this.detail()?.plataformas ?? this.serie().plataformas;
+    if (explicit?.length) {
+      return explicit.slice(0, 3);
+    }
+
+    const title = (this.detail()?.titulo ?? this.serie().titulo).toLowerCase();
+    const platformHints: Array<[string, string[]]> = [
+      ['one piece', ['Netflix', 'Crunchyroll']],
+      ['attack on titan', ['Crunchyroll', 'Hulu']],
+      ['demon slayer', ['Crunchyroll', 'Netflix']],
+      ['jujutsu kaisen', ['Crunchyroll']],
+      ['naruto', ['Crunchyroll', 'Netflix']],
+      ['death note', ['Netflix', 'Crunchyroll']],
+      ['dragon ball', ['Crunchyroll']],
+      ['game of thrones', ['Max']],
+      ['house of the dragon', ['Max']],
+      ['the witcher', ['Netflix']],
+      ['the sandman', ['Netflix']],
+      ['shadow and bone', ['Netflix']],
+      ['the wheel of time', ['Prime Video']],
+      ['the rings of power', ['Prime Video']]
+    ];
+
+    return platformHints.find(([needle]) => title.includes(needle))?.[1] ?? [];
   }
 }

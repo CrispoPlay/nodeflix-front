@@ -13,7 +13,7 @@ import { OnboardingService } from '../../core/onboarding.service';
 export class CoversPage implements OnInit {
   readonly covers = signal<SerieSummary[]>([]);
   readonly selectedIds = signal<number[]>([]);
-  readonly busyIds = signal<number[]>([]);
+  readonly saving = signal(false);
   readonly loading = signal(true);
 
   constructor(
@@ -23,26 +23,20 @@ export class CoversPage implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
-      const series = await this.onboarding.loadSeedSeries(3);
+      const series = await this.onboarding.loadSeedSeries(8);
       this.covers.set(series.filter((serie) => serie.poster).slice(0, 18));
-      this.selectedIds.set(this.onboarding.touchedSeries());
     } finally {
       this.loading.set(false);
     }
   }
 
-  async select(serie: SerieSummary): Promise<void> {
-    if (this.busyIds().includes(serie.id_tmdb)) {
-      return;
-    }
+  select(serie: SerieSummary): void {
+    const selected = this.isSelected(serie.id_tmdb);
+    const next = selected
+      ? this.selectedIds().filter((id) => id !== serie.id_tmdb)
+      : [...this.selectedIds(), serie.id_tmdb];
 
-    this.busyIds.set([...this.busyIds(), serie.id_tmdb]);
-    try {
-      await this.onboarding.recordInteraction(serie, 'LE_GUSTA');
-      this.selectedIds.set(Array.from(new Set([...this.selectedIds(), serie.id_tmdb])));
-    } finally {
-      this.busyIds.set(this.busyIds().filter((id) => id !== serie.id_tmdb));
-    }
+    this.selectedIds.set(next);
   }
 
   isSelected(idTmdb: number): boolean {
@@ -50,6 +44,16 @@ export class CoversPage implements OnInit {
   }
 
   async finish(): Promise<void> {
-    await this.router.navigate(['/browse']);
+    this.saving.set(true);
+    try {
+      const selected = new Set(this.selectedIds());
+      for (const serie of this.covers().filter((item) => selected.has(item.id_tmdb))) {
+        await this.onboarding.recordInteraction(serie, 'LE_GUSTA');
+      }
+
+      await this.router.navigate(['/browse']);
+    } finally {
+      this.saving.set(false);
+    }
   }
 }

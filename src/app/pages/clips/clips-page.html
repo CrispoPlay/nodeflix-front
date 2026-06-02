@@ -7,9 +7,10 @@
     <button
       type="button"
       class="flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-bold text-black transition hover:bg-cyan-300"
+      [disabled]="saving()"
       (click)="continue()"
     >
-      Caratulas
+      {{ saving() ? 'Guardando...' : 'Caratulas' }}
       <svg lucideArrowRight class="size-4"></svg>
     </button>
   </header>
@@ -19,13 +20,13 @@
       <p class="text-sm font-semibold uppercase tracking-[0.18em] text-red-300">Clips iniciales</p>
       <h1 class="mt-3 text-4xl font-black tracking-normal text-white sm:text-5xl">Un primer pulso de tus gustos.</h1>
       <p class="mt-4 text-base leading-7 text-neutral-300">
-        Cada reaccion registra una relacion con series en el backend para que Neo4j tenga senales antes del tablero final.
+        Marca una reaccion por clip. Si vuelves a tocar el mismo boton, se quita la seleccion y puedes cargar mas opciones.
       </p>
     </div>
 
     @if (loading()) {
       <div class="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        @for (item of [1, 2, 3, 4, 5, 6]; track item) {
+        @for (item of [1, 2, 3, 4, 5, 6, 7, 8, 9]; track item) {
           <div class="h-80 animate-pulse rounded-md bg-white/10"></div>
         }
       </div>
@@ -64,8 +65,8 @@
                     {{ formatGenres(clip.serie) }}
                   </p>
                 </div>
-                @if (isTouched(clip.serie.id_tmdb)) {
-                  <span class="rounded-md bg-emerald-400 px-2 py-1 text-xs font-black text-black">Guardado</span>
+                @if (selectedType(clip.serie.id_tmdb)) {
+                  <span class="rounded-md bg-emerald-400 px-2 py-1 text-xs font-black text-black">{{ selectedLabel(clip.serie.id_tmdb) }}</span>
                 }
               </div>
 
@@ -77,8 +78,9 @@
                 <button
                   type="button"
                   title="Me gusta"
-                  class="grid size-10 place-items-center rounded-md bg-white text-black transition hover:bg-emerald-300 disabled:opacity-50"
-                  [disabled]="busyIds().includes(clip.serie.id_tmdb)"
+                  class="grid size-10 place-items-center rounded-md text-black transition hover:bg-emerald-300"
+                  [class.bg-emerald-300]="isSelected(clip.serie.id_tmdb, 'LE_GUSTA')"
+                  [class.bg-white]="!isSelected(clip.serie.id_tmdb, 'LE_GUSTA')"
                   (click)="react(clip.serie, 'LE_GUSTA')"
                 >
                   <svg lucideHeart class="size-5"></svg>
@@ -86,8 +88,11 @@
                 <button
                   type="button"
                   title="Favorita"
-                  class="grid size-10 place-items-center rounded-md bg-white/10 text-white transition hover:bg-amber-400 hover:text-black disabled:opacity-50"
-                  [disabled]="busyIds().includes(clip.serie.id_tmdb)"
+                  class="grid size-10 place-items-center rounded-md transition hover:bg-amber-400 hover:text-black"
+                  [class.bg-amber-400]="isSelected(clip.serie.id_tmdb, 'ES_FAVORITA')"
+                  [class.text-black]="isSelected(clip.serie.id_tmdb, 'ES_FAVORITA')"
+                  [class.bg-white\/10]="!isSelected(clip.serie.id_tmdb, 'ES_FAVORITA')"
+                  [class.text-white]="!isSelected(clip.serie.id_tmdb, 'ES_FAVORITA')"
                   (click)="react(clip.serie, 'ES_FAVORITA')"
                 >
                   <svg lucideStar class="size-5"></svg>
@@ -95,8 +100,9 @@
                 <button
                   type="button"
                   title="No me gusta"
-                  class="grid size-10 place-items-center rounded-md bg-white/10 text-white transition hover:bg-red-500 disabled:opacity-50"
-                  [disabled]="busyIds().includes(clip.serie.id_tmdb)"
+                  class="grid size-10 place-items-center rounded-md text-white transition hover:bg-red-500"
+                  [class.bg-red-500]="isSelected(clip.serie.id_tmdb, 'NO_LE_GUSTA')"
+                  [class.bg-white\/10]="!isSelected(clip.serie.id_tmdb, 'NO_LE_GUSTA')"
                   (click)="react(clip.serie, 'NO_LE_GUSTA')"
                 >
                   <svg lucideThumbsDown class="size-5"></svg>
@@ -104,6 +110,24 @@
               </div>
             </div>
           </article>
+        }
+      </div>
+
+      <div class="mt-8 flex flex-col items-center gap-3">
+        @if (moreError()) {
+          <p class="rounded-md border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">{{ moreError() }}</p>
+        }
+
+        @if (hasMore()) {
+          <button
+            type="button"
+            class="flex items-center gap-2 rounded-md border border-white/10 bg-white px-5 py-3 text-sm font-black text-black transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+            [disabled]="loadingMore()"
+            (click)="loadMore()"
+          >
+            <svg lucidePlus class="size-4"></svg>
+            {{ loadingMore() ? 'Cargando...' : 'Cargar mas clips' }}
+          </button>
         }
       </div>
     }
