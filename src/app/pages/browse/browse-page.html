@@ -1,0 +1,110 @@
+<main class="min-h-screen bg-black text-white">
+  <nav class="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-black/80 px-5 py-3 backdrop-blur-xl sm:px-8">
+    <div class="mx-auto flex max-w-7xl items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="grid size-10 place-items-center rounded-md bg-red-600 font-black">N</div>
+        <span class="hidden text-xl font-black sm:block">NodeFlix</span>
+      </div>
+
+      <div class="relative ml-auto w-full max-w-md">
+        <label class="flex items-center gap-2 rounded-md border border-white/10 bg-white/10 px-3 py-2 focus-within:border-red-400">
+          <svg lucideSearch class="size-4 text-neutral-400"></svg>
+          <input
+            class="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-neutral-500"
+            name="search"
+            placeholder="Buscar series"
+            [(ngModel)]="searchTerm"
+            (input)="search()"
+          />
+        </label>
+        @if (searchResults().length) {
+          <div class="absolute right-0 top-12 w-full rounded-md border border-white/10 bg-neutral-950 p-3 shadow-2xl">
+            <div class="scroll-row flex gap-3 overflow-x-auto">
+              @for (serie of searchResults(); track serie.id_tmdb) {
+                <app-series-card class="scale-90 origin-top-left" [serie]="serie" (interaction)="onInteraction($event)" />
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <button
+        type="button"
+        title="Cerrar sesion"
+        class="grid size-10 shrink-0 place-items-center rounded-md bg-white/10 text-white transition hover:bg-white hover:text-black"
+        (click)="logout()"
+      >
+        <svg lucideLogOut class="size-5"></svg>
+      </button>
+    </div>
+  </nav>
+
+  @if (loading()) {
+    <section class="grid min-h-screen place-items-center px-5">
+      <div class="text-center">
+        <div class="mx-auto mb-4 grid size-14 animate-pulse place-items-center rounded-md bg-red-600">
+          <svg lucideSparkles class="size-7"></svg>
+        </div>
+        <p class="text-lg font-semibold text-white">Calculando recomendaciones...</p>
+      </div>
+    </section>
+  } @else if (status()) {
+    <section class="grid min-h-screen place-items-center px-5">
+      <div class="max-w-xl rounded-md border border-red-400/30 bg-red-500/10 p-6 text-center text-red-100">{{ status() }}</div>
+    </section>
+  } @else {
+    <section class="relative min-h-[68vh] overflow-hidden pt-20">
+      @if (hero()?.poster) {
+        <img class="absolute right-0 top-0 h-full w-full object-cover opacity-45 sm:w-3/5" [src]="hero()?.poster" [alt]="hero()?.titulo" />
+      }
+      <div class="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/20"></div>
+      <div class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black to-transparent"></div>
+
+      <div class="relative z-10 mx-auto flex min-h-[68vh] max-w-7xl items-center px-5 py-12 sm:px-8">
+        <div class="max-w-3xl">
+          <p class="mb-3 inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/10 px-3 py-2 text-sm font-semibold text-cyan-200">
+            <svg lucideSparkles class="size-4"></svg>
+            Recomendacion principal
+          </p>
+          <h1 class="text-4xl font-black tracking-normal text-white sm:text-6xl">{{ hero()?.titulo }}</h1>
+          <div class="mt-4 flex flex-wrap items-center gap-3 text-sm text-neutral-300">
+            @if (hero()?.calificacion) {
+              <span class="rounded-sm bg-emerald-400 px-2 py-1 font-black text-black">{{ hero()?.calificacion?.toFixed(1) }}</span>
+            }
+            @if (hero()?.fecha_salida) {
+              <span>{{ hero()?.fecha_salida }}</span>
+            }
+            @if (hero()?.generos?.length) {
+              <span>{{ heroGenres() }}</span>
+            }
+          </div>
+          <p class="mt-5 line-clamp-4 max-w-2xl text-base leading-7 text-neutral-200 sm:text-lg">
+            {{ hero()?.descripcion || 'Recomendacion calculada desde tus interacciones.' }}
+          </p>
+          <div class="mt-7 flex flex-wrap gap-3">
+            <button
+              type="button"
+              class="flex items-center gap-2 rounded-md bg-white px-5 py-3 font-black text-black transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+              [disabled]="!hero()?.youtube_key"
+              (click)="playHero()"
+            >
+              <svg lucidePlay class="size-5"></svg>
+              Trailer
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="-mt-10 space-y-8 pb-14">
+      <app-series-row title="Recomendadas para ti" [items]="recommendations()" (interaction)="onInteraction($event)" />
+      <app-series-row title="Top actual" [items]="popular()" (interaction)="onInteraction($event)" />
+      @if (history().length) {
+        <app-series-row title="Tu historial de nodos" [items]="history()" (interaction)="onInteraction($event)" />
+      }
+      @for (row of genreRows(); track row.title) {
+        <app-series-row [title]="row.title" [items]="row.items" (interaction)="onInteraction($event)" />
+      }
+    </div>
+  }
+</main>

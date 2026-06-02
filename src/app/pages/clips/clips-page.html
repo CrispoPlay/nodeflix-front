@@ -1,0 +1,111 @@
+<main class="min-h-screen px-5 py-6 sm:px-8">
+  <header class="mx-auto flex max-w-7xl items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="grid size-10 place-items-center rounded-md bg-red-600 font-black text-white">N</div>
+      <span class="text-xl font-black text-white">NodeFlix</span>
+    </div>
+    <button
+      type="button"
+      class="flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-bold text-black transition hover:bg-cyan-300"
+      (click)="continue()"
+    >
+      Caratulas
+      <svg lucideArrowRight class="size-4"></svg>
+    </button>
+  </header>
+
+  <section class="mx-auto max-w-7xl py-10">
+    <div class="max-w-3xl">
+      <p class="text-sm font-semibold uppercase tracking-[0.18em] text-red-300">Clips iniciales</p>
+      <h1 class="mt-3 text-4xl font-black tracking-normal text-white sm:text-5xl">Un primer pulso de tus gustos.</h1>
+      <p class="mt-4 text-base leading-7 text-neutral-300">
+        Cada reaccion registra una relacion con series en el backend para que Neo4j tenga senales antes del tablero final.
+      </p>
+    </div>
+
+    @if (loading()) {
+      <div class="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        @for (item of [1, 2, 3, 4, 5, 6]; track item) {
+          <div class="h-80 animate-pulse rounded-md bg-white/10"></div>
+        }
+      </div>
+    } @else if (error()) {
+      <p class="mt-10 rounded-md border border-red-400/30 bg-red-500/10 p-4 text-red-100">{{ error() }}</p>
+    } @else {
+      <div class="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        @for (clip of clips(); track clip.serie.id_tmdb) {
+          <article class="overflow-hidden rounded-md border border-white/10 bg-white/[0.04] shadow-2xl">
+            <div class="relative aspect-video bg-neutral-950">
+              @if (clip.videoUrl) {
+                <iframe
+                  class="h-full w-full"
+                  [src]="clip.videoUrl"
+                  [title]="clip.serie.titulo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen
+                ></iframe>
+              } @else if (clip.serie.poster) {
+                <img class="h-full w-full object-cover opacity-70" [src]="clip.serie.poster" [alt]="clip.serie.titulo" />
+                <div class="absolute inset-0 grid place-items-center">
+                  <span class="grid size-14 place-items-center rounded-md bg-black/75 text-white">
+                    <svg lucidePlay class="size-7"></svg>
+                  </span>
+                </div>
+              } @else {
+                <div class="grid h-full place-items-center text-neutral-400">{{ clip.serie.titulo }}</div>
+              }
+            </div>
+
+            <div class="p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <h2 class="line-clamp-1 text-lg font-bold text-white">{{ clip.serie.titulo }}</h2>
+                  <p class="mt-1 text-sm text-neutral-400">
+                    {{ formatGenres(clip.serie) }}
+                  </p>
+                </div>
+                @if (isTouched(clip.serie.id_tmdb)) {
+                  <span class="rounded-md bg-emerald-400 px-2 py-1 text-xs font-black text-black">Guardado</span>
+                }
+              </div>
+
+              <p class="mt-3 line-clamp-3 min-h-16 text-sm leading-6 text-neutral-300">
+                {{ clip.serie.descripcion || 'Sin sinopsis disponible.' }}
+              </p>
+
+              <div class="mt-4 flex items-center gap-2">
+                <button
+                  type="button"
+                  title="Me gusta"
+                  class="grid size-10 place-items-center rounded-md bg-white text-black transition hover:bg-emerald-300 disabled:opacity-50"
+                  [disabled]="busyIds().includes(clip.serie.id_tmdb)"
+                  (click)="react(clip.serie, 'LE_GUSTA')"
+                >
+                  <svg lucideHeart class="size-5"></svg>
+                </button>
+                <button
+                  type="button"
+                  title="Favorita"
+                  class="grid size-10 place-items-center rounded-md bg-white/10 text-white transition hover:bg-amber-400 hover:text-black disabled:opacity-50"
+                  [disabled]="busyIds().includes(clip.serie.id_tmdb)"
+                  (click)="react(clip.serie, 'ES_FAVORITA')"
+                >
+                  <svg lucideStar class="size-5"></svg>
+                </button>
+                <button
+                  type="button"
+                  title="No me gusta"
+                  class="grid size-10 place-items-center rounded-md bg-white/10 text-white transition hover:bg-red-500 disabled:opacity-50"
+                  [disabled]="busyIds().includes(clip.serie.id_tmdb)"
+                  (click)="react(clip.serie, 'NO_LE_GUSTA')"
+                >
+                  <svg lucideThumbsDown class="size-5"></svg>
+                </button>
+              </div>
+            </div>
+          </article>
+        }
+      </div>
+    }
+  </section>
+</main>

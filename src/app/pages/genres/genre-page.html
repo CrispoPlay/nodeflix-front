@@ -1,0 +1,74 @@
+<main class="min-h-screen px-5 py-6 sm:px-8">
+  <header class="mx-auto flex max-w-7xl items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="grid size-10 place-items-center rounded-md bg-red-600 font-black text-white">N</div>
+      <span class="text-xl font-black text-white">NodeFlix</span>
+    </div>
+    <div class="hidden items-center gap-2 text-sm text-neutral-400 sm:flex">
+      <span class="text-white">Generos</span>
+      <span>/</span>
+      <span>Clips</span>
+      <span>/</span>
+      <span>Caratulas</span>
+    </div>
+  </header>
+
+  <section class="mx-auto grid max-w-7xl gap-10 py-10 lg:grid-cols-[0.8fr_1.2fr] lg:py-16">
+    <div class="lg:sticky lg:top-10 lg:self-start">
+      <div class="mb-5 grid size-12 place-items-center rounded-md bg-white text-black">
+        <svg lucideClapperboard class="size-6"></svg>
+      </div>
+      <h1 class="max-w-xl text-4xl font-black tracking-normal text-white sm:text-5xl">Elige el tono de tus recomendaciones.</h1>
+      <p class="mt-4 max-w-lg text-base leading-7 text-neutral-300">
+        Estos generos alimentan la primera ronda de clips y caratulas para crear interacciones reales contra la API.
+      </p>
+      <div class="mt-8 rounded-md border border-white/10 bg-white/5 p-4">
+        <p class="text-sm text-neutral-400">Seleccionados</p>
+        <p class="mt-1 text-3xl font-black text-white">{{ onboarding.selectedCount() }}</p>
+      </div>
+    </div>
+
+    <div>
+      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        @for (genre of genres; track genre.id) {
+          <button
+            type="button"
+            class="group min-h-32 rounded-md border bg-white/[0.04] p-4 text-left transition hover:-translate-y-1 hover:bg-white/[0.08]"
+            [class.border-white]="isSelected(genre)"
+            [class.border-white/10]="!isSelected(genre)"
+            [style.boxShadow]="isSelected(genre) ? '0 0 0 1px ' + genre.accent + ', 0 18px 40px rgba(0,0,0,.35)' : ''"
+            (click)="toggle(genre)"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <span class="rounded-md px-2 py-1 text-xs font-semibold text-black" [style.backgroundColor]="genre.accent">
+                {{ genre.name }}
+              </span>
+              <span
+                class="grid size-7 place-items-center rounded-md border border-white/10 text-white transition"
+                [class.bg-white]="isSelected(genre)"
+                [class.text-black]="isSelected(genre)"
+              >
+                @if (isSelected(genre)) {
+                  <svg lucideCheck class="size-4"></svg>
+                }
+              </span>
+            </div>
+            <p class="mt-6 text-lg font-semibold text-white">{{ genre.mood }}</p>
+            <p class="mt-2 line-clamp-2 text-sm leading-6 text-neutral-400">{{ genre.queries.join(' / ') }}</p>
+          </button>
+        }
+      </div>
+
+      <div class="mt-8 flex justify-end">
+        <button
+          type="button"
+          class="flex items-center gap-2 rounded-md bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-500"
+          (click)="continue()"
+        >
+          Continuar
+          <svg lucideArrowRight class="size-5"></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+</main>

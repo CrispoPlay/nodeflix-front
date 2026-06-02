@@ -1,0 +1,118 @@
+<main class="relative min-h-screen overflow-hidden">
+  <div class="absolute inset-0 opacity-40">
+    @if (popular().length) {
+      <div class="grid h-full grid-cols-3 gap-3 p-4 sm:grid-cols-5">
+        @for (serie of popular(); track serie.id_tmdb) {
+          <img class="h-full min-h-40 w-full rounded-md object-cover" [src]="serie.poster" [alt]="serie.titulo" />
+        }
+      </div>
+    } @else {
+      <div class="h-full bg-[linear-gradient(135deg,#1b1b1b,#090909_48%,#181818)]"></div>
+    }
+  </div>
+  <div class="absolute inset-0 bg-gradient-to-r from-black via-black/85 to-black/35"></div>
+
+  <section class="relative z-10 grid min-h-screen items-center gap-10 px-5 py-8 sm:px-10 lg:grid-cols-[1fr_420px] lg:px-16">
+    <div class="max-w-3xl">
+      <div class="mb-8 inline-flex items-center gap-3">
+        <div class="grid size-11 place-items-center rounded-md bg-red-600 font-black text-white">N</div>
+        <span class="text-2xl font-black tracking-normal text-white">NodeFlix</span>
+      </div>
+      <h1 class="max-w-2xl text-4xl font-black tracking-normal text-white sm:text-6xl">Series conectadas por tus gustos.</h1>
+      <p class="mt-5 max-w-xl text-base leading-7 text-neutral-300 sm:text-lg">
+        El motor usa interacciones y relaciones entre generos para armar una experiencia de recomendaciones con datos de tu backend.
+      </p>
+      <div class="mt-8 flex flex-wrap gap-3 text-sm text-neutral-300">
+        <span class="rounded-md border border-white/10 bg-white/10 px-3 py-2">Neo4j</span>
+        <span class="rounded-md border border-white/10 bg-white/10 px-3 py-2">TMDB</span>
+        <span class="rounded-md border border-white/10 bg-white/10 px-3 py-2">Recomendaciones</span>
+      </div>
+    </div>
+
+    <form class="glass-panel rounded-lg p-5 shadow-2xl sm:p-6" (ngSubmit)="submit()">
+      <div class="grid grid-cols-2 rounded-md bg-white/5 p-1">
+        <button
+          type="button"
+          class="rounded-md px-4 py-2 text-sm font-semibold transition"
+          [class.bg-white]="mode() === 'login'"
+          [class.text-black]="mode() === 'login'"
+          [class.text-neutral-300]="mode() !== 'login'"
+          (click)="switchMode('login')"
+        >
+          Iniciar sesion
+        </button>
+        <button
+          type="button"
+          class="rounded-md px-4 py-2 text-sm font-semibold transition"
+          [class.bg-white]="mode() === 'register'"
+          [class.text-black]="mode() === 'register'"
+          [class.text-neutral-300]="mode() !== 'register'"
+          (click)="switchMode('register')"
+        >
+          Registro
+        </button>
+      </div>
+
+      <div class="mt-6 space-y-4">
+        @if (mode() === 'register') {
+          <label class="block">
+            <span class="mb-2 block text-sm text-neutral-300">Nombre</span>
+            <span class="flex items-center gap-3 rounded-md border border-white/10 bg-black/40 px-3 py-3 text-white focus-within:border-red-400">
+              <svg lucideUser class="size-5 text-neutral-400"></svg>
+              <input
+                class="min-w-0 flex-1 bg-transparent outline-none placeholder:text-neutral-600"
+                name="nombre"
+                autocomplete="name"
+                [(ngModel)]="form.nombre"
+                required
+              />
+            </span>
+          </label>
+        }
+
+        <label class="block">
+          <span class="mb-2 block text-sm text-neutral-300">Correo</span>
+          <span class="flex items-center gap-3 rounded-md border border-white/10 bg-black/40 px-3 py-3 text-white focus-within:border-red-400">
+            <svg lucideMail class="size-5 text-neutral-400"></svg>
+            <input
+              class="min-w-0 flex-1 bg-transparent outline-none placeholder:text-neutral-600"
+              name="correo"
+              type="email"
+              autocomplete="email"
+              [(ngModel)]="form.correo"
+              required
+            />
+          </span>
+        </label>
+
+        <label class="block">
+          <span class="mb-2 block text-sm text-neutral-300">Contrasena</span>
+          <span class="flex items-center gap-3 rounded-md border border-white/10 bg-black/40 px-3 py-3 text-white focus-within:border-red-400">
+            <svg lucideLock class="size-5 text-neutral-400"></svg>
+            <input
+              class="min-w-0 flex-1 bg-transparent outline-none placeholder:text-neutral-600"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              [(ngModel)]="form.password"
+              required
+            />
+          </span>
+        </label>
+      </div>
+
+      @if (error()) {
+        <p class="mt-4 rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{{ error() }}</p>
+      }
+
+      <button
+        type="submit"
+        class="mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-red-600 px-4 py-3 font-bold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+        [disabled]="loading()"
+      >
+        <svg lucideLogIn class="size-5"></svg>
+        {{ loading() ? 'Procesando...' : mode() === 'login' ? 'Entrar' : 'Crear cuenta' }}
+      </button>
+    </form>
+  </section>
+</main>
