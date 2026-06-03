@@ -1,13 +1,13 @@
 <article
   class="group relative w-40 shrink-0 overflow-visible sm:w-48"
-  (mouseenter)="loadDetails()"
-  (focusin)="loadDetails()"
+  (mouseenter)="preparePreview()"
+  (focusin)="preparePreview()"
 >
   <div class="poster-shadow relative aspect-[2/3] overflow-hidden rounded-md bg-neutral-900 ring-1 ring-white/10">
-    @if (serie().poster) {
+    @if (posterUrl(); as poster) {
       <img
         class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-        [src]="serie().poster"
+        [src]="poster"
         [alt]="serie().titulo"
         loading="lazy"
       />
@@ -34,7 +34,7 @@
     </div>
 
     <div class="absolute inset-x-2 bottom-2 z-20 max-h-[92%] overflow-hidden rounded-md bg-black/90 opacity-0 shadow-2xl ring-1 ring-white/15 transition duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-      @if (previewUrl()) {
+      @if (previewRequested() && previewUrl()) {
         <div class="aspect-video w-full overflow-hidden rounded-t-md bg-black">
           <iframe
             class="h-full w-full"

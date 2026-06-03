@@ -8,6 +8,7 @@ import { SeriesService } from './series.service';
 export class OnboardingService {
   private readonly genresKey = 'nodeflix_selected_genres';
   private readonly touchedKey = 'nodeflix_touched_series';
+  private randomPopularSeed: SerieSummary[] = [];
 
   readonly selectedGenres = signal<GenreOption[]>(this.readGenres());
   readonly touchedSeries = signal<number[]>(this.readTouchedSeries());
@@ -28,6 +29,10 @@ export class OnboardingService {
   ensureGenres(): GenreOption[] {
     const selected = this.selectedGenres();
     return selected.length ? selected : DEFAULT_GENRES;
+  }
+
+  resetTrailerCandidates(): void {
+    this.randomPopularSeed = [];
   }
 
   async loadSeedSeries(limitPerGenre = 3, matchesPerQuery = 1): Promise<SerieSummary[]> {
@@ -61,7 +66,7 @@ export class OnboardingService {
   }
 
   async loadDetailedCandidates(limit = 8): Promise<SerieDetail[]> {
-    const summaries = await this.loadSeedSeries(12, 2);
+    const summaries = await this.loadPopularSeedSeries(limit * 5);
     const details: SerieDetail[] = [];
     const fallback: SerieDetail[] = [];
 
@@ -138,6 +143,60 @@ export class OnboardingService {
 
       return aExact - bExact || aStarts - bStarts || aPoster - bPoster;
     });
+  }
+
+  private async loadPopularSeedSeries(limit: number): Promise<SerieSummary[]> {
+    if (this.randomPopularSeed.length) {
+      return this.randomPopularSeed.slice(0, limit);
+    }
+
+    const seen = new Set<number>();
+    const candidates: SerieSummary[] = [];
+    const candidateLimit = Math.max(limit * 2, 120);
+
+    for (let page = 1; page <= 6 && candidates.length < candidateLimit; page++) {
+      try {
+        const popular = await firstValueFrom(this.series.getPopulares(page));
+
+        for (const item of popular) {
+          if (!seen.has(item.id_tmdb)) {
+            seen.add(item.id_tmdb);
+            candidates.push(item);
+          }
+
+          if (candidates.length >= candidateLimit) {
+            break;
+          }
+        }
+      } catch {
+        break;
+      }
+    }
+
+    if (!candidates.length) {
+      return this.loadSeedSeries(12, 2);
+    }
+
+    this.randomPopularSeed = this.weightedShuffle(candidates);
+    return this.randomPopularSeed.slice(0, limit);
+  }
+
+  private weightedShuffle(items: SerieSummary[]): SerieSummary[] {
+    return [...items]
+      .map((item, index) => ({
+        item,
+        key: Math.pow(Math.random(), 1 / this.publicAppealWeight(item, index))
+      }))
+      .sort((a, b) => b.key - a.key)
+      .map(({ item }) => item);
+  }
+
+  private publicAppealWeight(item: SerieSummary, index: number): number {
+    const scoreBoost = Math.max(item.score ?? 0, 0) / 10;
+    const rankingBoost = Math.max(0, 1 - index / 120);
+    const posterBoost = item.poster ? 0.8 : 0.15;
+
+    return 0.7 + scoreBoost + rankingBoost + posterBoost;
   }
 
   private normalize(value: string): string {

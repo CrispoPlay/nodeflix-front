@@ -61,8 +61,8 @@
     </section>
   } @else {
     <section class="relative min-h-[68vh] overflow-hidden pt-20">
-      @if (hero()?.poster) {
-        <img class="absolute right-0 top-0 h-full w-full object-cover opacity-45 sm:w-3/5" [src]="hero()?.poster" [alt]="hero()?.titulo" />
+      @if (heroPosterUrl(); as poster) {
+        <img class="absolute right-0 top-0 h-full w-full object-cover opacity-45 sm:w-3/5" [src]="poster" [alt]="hero()?.titulo" />
       }
       <div class="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/20"></div>
       <div class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black to-transparent"></div>
@@ -135,8 +135,8 @@
                 [class.ring-cyan-300]="hero()?.id_tmdb === serie.id_tmdb"
                 (click)="selectHero(serie)"
               >
-                @if (serie.poster) {
-                  <img class="absolute inset-0 h-full w-full object-cover opacity-70 transition group-hover:scale-105" [src]="serie.poster" [alt]="serie.titulo" />
+                @if (posterUrl(serie); as poster) {
+                  <img class="absolute inset-0 h-full w-full object-cover opacity-70 transition group-hover:scale-105" [src]="poster" [alt]="serie.titulo" />
                 }
                 <div class="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent"></div>
                 <div class="absolute inset-x-0 bottom-0 p-3">

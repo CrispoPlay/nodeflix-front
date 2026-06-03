@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, OnInit, computed, input, output, signal } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -11,6 +11,7 @@ import {
   LucideThumbsDown
 } from '@lucide/angular';
 import { InteractionType, SerieDetail, SerieSummary } from '../../core/models';
+import { resolvePosterUrl } from '../../core/poster-url';
 import { SeriesService } from '../../core/series.service';
 
 @Component({
@@ -18,13 +19,14 @@ import { SeriesService } from '../../core/series.service';
   imports: [CommonModule, LucideCirclePlay, LucideHeart, LucideInfo, LucidePlus, LucideStar, LucideThumbsDown],
   templateUrl: './series-card.html'
 })
-export class SeriesCard {
+export class SeriesCard implements OnInit {
   readonly serie = input.required<SerieSummary>();
   readonly showActions = input(true);
   readonly interaction = output<{ serie: SerieSummary; type: InteractionType }>();
 
   readonly detail = signal<SerieDetail | null>(null);
   readonly loading = signal(false);
+  readonly previewRequested = signal(false);
 
   readonly rating = computed(() => {
     const value = this.detail()?.calificacion;
@@ -32,6 +34,7 @@ export class SeriesCard {
   });
 
   readonly genres = computed(() => this.detail()?.generos?.map((genre) => genre.name).slice(0, 3).join(' / ') ?? '');
+  readonly posterUrl = computed(() => resolvePosterUrl(this.detail()?.poster ?? this.serie().poster));
   readonly previewUrl = computed(() => this.safeYoutubeUrl(this.detail()?.youtube_key ?? this.serie().youtube_key));
   readonly platforms = computed(() => this.resolvePlatforms());
 
@@ -39,6 +42,12 @@ export class SeriesCard {
     private readonly series: SeriesService,
     private readonly sanitizer: DomSanitizer
   ) {}
+
+  ngOnInit(): void {
+    if (!this.posterUrl()) {
+      void this.loadDetails();
+    }
+  }
 
   async loadDetails(): Promise<void> {
     if (this.detail() || this.loading()) {
@@ -53,6 +62,11 @@ export class SeriesCard {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  async preparePreview(): Promise<void> {
+    this.previewRequested.set(true);
+    await this.loadDetails();
   }
 
   send(event: Event, type: InteractionType): void {

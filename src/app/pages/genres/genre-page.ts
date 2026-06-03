@@ -28,6 +28,6 @@ export class GenrePage {
   }
 
   async continue(): Promise<void> {
-    await this.router.navigate(['/clips']);
+    await this.router.navigate(['/caratulas']);
   }
 }

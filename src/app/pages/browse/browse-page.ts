@@ -16,6 +16,7 @@ import { AuthService } from '../../core/auth.service';
 import { DEFAULT_GENRES } from '../../core/catalog';
 import { InteractionType, SerieDetail, SerieSummary, SeriesRow as SeriesRowModel } from '../../core/models';
 import { OnboardingService } from '../../core/onboarding.service';
+import { resolvePosterUrl } from '../../core/poster-url';
 import { SeriesService } from '../../core/series.service';
 import { SeriesCard } from '../../shared/series-card/series-card';
 import { SeriesRow } from '../../shared/series-row/series-row';
@@ -79,19 +80,19 @@ export class BrowsePage implements OnInit {
 
       this.dislikedIds.set(interactionState.dislikedIds);
 
-      const visiblePopular = this.uniqueSeries(popular)
+      const visiblePopular = await this.hydrateMissingPosters(this.uniqueSeries(popular)
         .filter((serie) => !interactionState.dislikedIds.includes(serie.id_tmdb))
-        .slice(0, 18);
+        .slice(0, 18));
       const genreRows = await this.loadGenreRows();
       const personalizedPool = this.personalizedPoolFrom(genreRows, interactionState.history, interactionState.watchlist, visiblePopular);
-      const apiRecommendations = this.uniqueSeries(recommendations)
+      const apiRecommendations = await this.hydrateMissingPosters(this.uniqueSeries(recommendations)
         .filter((serie) => !interactionState.dislikedIds.includes(serie.id_tmdb))
-        .slice(0, 18);
+        .slice(0, 18));
       const apiIsFallbackTop = this.isSameRow(apiRecommendations, visiblePopular);
-      const visibleRecommendations = apiIsFallbackTop
+      const visibleRecommendations = await this.hydrateMissingPosters(apiIsFallbackTop
         ? personalizedPool.slice(0, 18)
-        : this.uniqueSeries([...apiRecommendations, ...personalizedPool]).slice(0, 18);
-      const heroRail = this.uniqueSeries([...visibleRecommendations, ...personalizedPool]).slice(0, 14);
+        : this.uniqueSeries([...apiRecommendations, ...personalizedPool]).slice(0, 18));
+      const heroRail = await this.hydrateMissingPosters(this.uniqueSeries([...visibleRecommendations, ...personalizedPool]).slice(0, 14));
 
       this.popular.set(visiblePopular);
       this.recommendations.set(visibleRecommendations);
@@ -145,7 +146,7 @@ export class BrowsePage implements OnInit {
         }))
       );
     } else {
-      this.recommendations.set((await this.loadRecommendations()).slice(0, 18));
+      this.recommendations.set(await this.hydrateMissingPosters((await this.loadRecommendations()).slice(0, 18)));
     }
 
     const interactionState = await this.loadInteractionState();
@@ -181,6 +182,14 @@ export class BrowsePage implements OnInit {
 
   heroGenres(): string {
     return this.hero()?.generos?.map((genre) => genre.name).slice(0, 3).join(' / ') ?? '';
+  }
+
+  heroPosterUrl(): string | null {
+    return resolvePosterUrl(this.hero()?.poster);
+  }
+
+  posterUrl(serie: SerieSummary): string | null {
+    return resolvePosterUrl(serie.poster);
   }
 
   async logout(): Promise<void> {
@@ -252,14 +261,39 @@ export class BrowsePage implements OnInit {
         }
       }
 
+      const visibleItems = await this.hydrateMissingPosters(items.filter((item) => !this.dislikedIds().includes(item.id_tmdb)).slice(0, 14));
+
       rows.push({
         title: `${genre.name} conectado a tus gustos`,
-        items: items.filter((item) => !this.dislikedIds().includes(item.id_tmdb)).slice(0, 14),
+        items: visibleItems,
         accent: genre.accent
       });
     }
 
     return rows;
+  }
+
+  private async hydrateMissingPosters(items: SerieSummary[]): Promise<SerieSummary[]> {
+    return Promise.all(
+      items.map(async (serie) => {
+        if (resolvePosterUrl(serie.poster)) {
+          return serie;
+        }
+
+        try {
+          const detail = await firstValueFrom(this.series.getDetalles(serie.id_tmdb));
+          return {
+            ...serie,
+            poster: detail.poster ?? serie.poster,
+            descripcion: serie.descripcion ?? detail.descripcion,
+            youtube_key: serie.youtube_key ?? detail.youtube_key,
+            plataformas: serie.plataformas?.length ? serie.plataformas : detail.plataformas
+          };
+        } catch {
+          return serie;
+        }
+      })
+    );
   }
 
   private mergeSeries(items: SerieSummary[], serie: SerieSummary): SerieSummary[] {

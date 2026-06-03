@@ -60,7 +60,7 @@ export class AuthPage implements OnInit {
         await this.auth.login({ correo: this.form.correo, password: this.form.password });
       }
 
-      await this.router.navigate(['/generos']);
+      await this.router.navigate(['/clips']);
     } catch (error) {
       this.error.set(this.extractMessage(error));
     } finally {

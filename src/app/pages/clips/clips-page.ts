@@ -37,6 +37,7 @@ export class ClipsPage implements OnInit {
 
   async ngOnInit(): Promise<void> {
     try {
+      this.onboarding.resetTrailerCandidates();
       const clips = await this.loadClipViews(this.initialClipLimit);
       this.clips.set(clips);
       this.hasMore.set(clips.length >= this.initialClipLimit);
@@ -119,7 +120,7 @@ export class ClipsPage implements OnInit {
         }
       }
 
-      await this.router.navigate(['/caratulas']);
+      await this.router.navigate(['/generos']);
     } finally {
       this.saving.set(false);
     }

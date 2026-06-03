@@ -4,6 +4,7 @@ import { Observable, map, shareReplay } from 'rxjs';
 import { API_BASE_URL } from './api.config';
 import { AuthService } from './auth.service';
 import { ApiResponse, Interaction, InteractionType, SerieDetail, SerieSummary } from './models';
+import { resolvePosterUrl } from './poster-url';
 
 @Injectable({ providedIn: 'root' })
 export class SeriesService {
@@ -17,13 +18,13 @@ export class SeriesService {
   getPopulares(page = 1): Observable<SerieSummary[]> {
     return this.http
       .get<ApiResponse<SerieSummary[]>>(`${API_BASE_URL}/series/populares`, { params: { page } })
-      .pipe(map((response) => response.data ?? []));
+      .pipe(map((response) => this.normalizeSeries(response.data ?? [])));
   }
 
   searchSeries(query: string, page = 1): Observable<SerieSummary[]> {
     return this.http
       .get<ApiResponse<SerieSummary[]>>(`${API_BASE_URL}/series/buscar`, { params: { query, page } })
-      .pipe(map((response) => response.data ?? []));
+      .pipe(map((response) => this.normalizeSeries(response.data ?? [])));
   }
 
   getDetalles(idTmdb: number): Observable<SerieDetail> {
@@ -31,7 +32,7 @@ export class SeriesService {
       const request$ = this.http
         .get<ApiResponse<SerieDetail>>(`${API_BASE_URL}/series/${idTmdb}`)
         .pipe(
-          map((response) => response.data),
+          map((response) => this.normalizeSerie(response.data)),
           shareReplay(1)
         );
 
@@ -46,7 +47,7 @@ export class SeriesService {
       .get<ApiResponse<SerieSummary[]>>(`${API_BASE_URL}/recomendaciones`, {
         headers: this.auth.authHeaders()
       })
-      .pipe(map((response) => response.data ?? []));
+      .pipe(map((response) => this.normalizeSeries(response.data ?? [])));
   }
 
   interact(idTmdb: number, tipoInteraccion: InteractionType): Observable<unknown> {
@@ -63,5 +64,16 @@ export class SeriesService {
         headers: this.auth.authHeaders()
       })
       .pipe(map((response) => response.data ?? []));
+  }
+
+  private normalizeSeries<T extends SerieSummary>(items: T[]): T[] {
+    return items.map((item) => this.normalizeSerie(item));
+  }
+
+  private normalizeSerie<T extends SerieSummary>(item: T): T {
+    return {
+      ...item,
+      poster: resolvePosterUrl(item.poster)
+    };
   }
 }
