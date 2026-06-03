@@ -21,6 +21,12 @@ import { SeriesService } from '../../core/series.service';
 import { SeriesCard } from '../../shared/series-card/series-card';
 import { SeriesRow } from '../../shared/series-row/series-row';
 
+// 🌟 DICCIONARIO ANTI-BASURA: Palabras comunes en Spin-offs, Talk Shows y Extras
+const JUNK_WORDS = [
+  'talking', 'making of', 'extra', 'behind the scenes', 'special', 
+  'unfiltered', 'after show', 'revelations', 'entrevista', 'documentary', 'inside'
+];
+
 @Component({
   selector: 'app-browse-page',
   imports: [
@@ -89,9 +95,11 @@ export class BrowsePage implements OnInit {
         .filter((serie) => !interactionState.dislikedIds.includes(serie.id_tmdb))
         .slice(0, 18));
       const apiIsFallbackTop = this.isSameRow(apiRecommendations, visiblePopular);
+      
       const visibleRecommendations = await this.hydrateMissingPosters(apiIsFallbackTop
         ? personalizedPool.slice(0, 18)
         : this.uniqueSeries([...apiRecommendations, ...personalizedPool]).slice(0, 18));
+      
       const heroRail = await this.hydrateMissingPosters(this.uniqueSeries([...visibleRecommendations, ...personalizedPool]).slice(0, 14));
 
       this.popular.set(visiblePopular);
@@ -100,9 +108,14 @@ export class BrowsePage implements OnInit {
       this.history.set(interactionState.history.slice(0, 12));
       this.watchlist.set(interactionState.watchlist.slice(0, 18));
 
-      const heroCandidate = heroRail[0] ?? visibleRecommendations[0] ?? interactionState.history[0] ?? visiblePopular[0] ?? null;
-      if (heroCandidate) {
-        this.hero.set(await firstValueFrom(this.series.getDetalles(heroCandidate.id_tmdb)));
+      // 🌟 HERO DINÁMICO: Elegimos una serie al azar entre las 5 mejores para que el inicio siempre se sienta fresco.
+      const topHeroCandidates = heroRail.slice(0, 5);
+      const randomCandidate = topHeroCandidates.length > 0 
+        ? topHeroCandidates[Math.floor(Math.random() * topHeroCandidates.length)] 
+        : (visibleRecommendations[0] ?? interactionState.history[0] ?? visiblePopular[0] ?? null);
+
+      if (randomCandidate) {
+        this.hero.set(await firstValueFrom(this.series.getDetalles(randomCandidate.id_tmdb)));
       }
 
       this.genreRows.set(genreRows);
@@ -250,7 +263,16 @@ export class BrowsePage implements OnInit {
       for (const query of genre.queries.slice(0, 6)) {
         try {
           const found = await firstValueFrom(this.series.searchSeries(query));
-          for (const item of found.slice(0, 4)) {
+          
+          // 🌟 FILTRO ESTRÍCTO: Descartamos cualquier resultado cuyo título contenga palabras basura
+          const cleanFound = found.filter(s => {
+             const titleLower = s.titulo.toLowerCase();
+             return !JUNK_WORDS.some(kw => titleLower.includes(kw));
+          });
+
+          // 🌟 MÁXIMA RELEVANCIA: Tomamos SOLO los primeros 2 resultados limpios en lugar de 4. 
+          // Esto garantiza que solo agarre la serie principal y tal vez el spin-off oficial de más alta calidad, evadiendo los talk shows.
+          for (const item of cleanFound.slice(0, 2)) {
             if (!seen.has(item.id_tmdb)) {
               seen.add(item.id_tmdb);
               items.push(item);
@@ -263,11 +285,13 @@ export class BrowsePage implements OnInit {
 
       const visibleItems = await this.hydrateMissingPosters(items.filter((item) => !this.dislikedIds().includes(item.id_tmdb)).slice(0, 14));
 
-      rows.push({
-        title: `${genre.name} conectado a tus gustos`,
-        items: visibleItems,
-        accent: genre.accent
-      });
+      if (visibleItems.length > 0) {
+        rows.push({
+          title: `${genre.name} conectado a tus gustos`,
+          items: visibleItems,
+          accent: genre.accent
+        });
+      }
     }
 
     return rows;
@@ -343,10 +367,10 @@ export class BrowsePage implements OnInit {
 
   private interactionMessage(type: InteractionType): string {
     const messages: Record<InteractionType, string> = {
-      LE_GUSTA: 'Se guardo como gusto para tus recomendaciones.',
+      LE_GUSTA: 'Se guardó como gusto para tus recomendaciones.',
       ES_FAVORITA: 'Agregada a favoritos y Mi lista.',
       QUIERE_VER: 'Agregada a Mi lista.',
-      NO_LE_GUSTA: 'Marcada como no me gusta.'
+      NO_LE_GUSTA: 'Marcada como no me gusta. No la volveremos a sugerir.'
     };
 
     return messages[type];
