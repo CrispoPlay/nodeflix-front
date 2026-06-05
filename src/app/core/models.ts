@@ -24,6 +24,10 @@ export interface LoginCredentials {
 export interface RegisterPayload extends LoginCredentials {
   nombre: string;
 }
+export interface Platform {
+  nombre: string;
+  logo?: string;
+}
 
 export interface SerieSummary {
   id_tmdb: number;
@@ -32,7 +36,7 @@ export interface SerieSummary {
   descripcion?: string | null;
   fecha_salida?: string | null;
   youtube_key?: string | null;
-  plataformas?: string[];
+  plataformas?: Platform[];
   score?: number;
 }
 
