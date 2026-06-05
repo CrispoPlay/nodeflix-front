@@ -32,8 +32,19 @@ export class AuthPage implements OnInit {
   ) {}
 
   async ngOnInit(): Promise<void> {
+    // Si ya está autenticado, verificamos si es usuario nuevo o recurrente antes de redirigir
     if (this.auth.isAuthenticated()) {
-      await this.router.navigate(['/browse']);
+      try {
+        const interacciones = await firstValueFrom(this.series.getInteracciones());
+        if (interacciones && interacciones.length > 0) {
+          await this.router.navigate(['/browse']);
+        } else {
+          await this.router.navigate(['/clips']);
+        }
+      } catch {
+        // Fallback por si la API falla
+        await this.router.navigate(['/browse']);
+      }
       return;
     }
 
@@ -60,7 +71,21 @@ export class AuthPage implements OnInit {
         await this.auth.login({ correo: this.form.correo, password: this.form.password });
       }
 
-      await this.router.navigate(['/clips']);
+      try {
+        const interacciones = await firstValueFrom(this.series.getInteracciones());
+        
+        if (interacciones && interacciones.length > 0) {
+          // Usuario recurrente: Salta directo al menú principal
+          await this.router.navigate(['/browse']);
+        } else {
+          // Usuario nuevo: Lo enviamos al paso 1 del onboarding (Tráilers)
+          await this.router.navigate(['/clips']); 
+        }
+      } catch (error) {
+        // Fallback de seguridad si el backend no responde o el historial está vacío
+        await this.router.navigate(['/clips']);
+      }
+
     } catch (error) {
       this.error.set(this.extractMessage(error));
     } finally {

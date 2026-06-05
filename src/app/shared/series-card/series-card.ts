@@ -1,23 +1,8 @@
 import { CommonModule }                         from '@angular/common';
-import {
-  Component,
-  OnInit,
-  computed,
-  input,
-  output,
-  signal
-}                                                from '@angular/core';
-import { DomSanitizer, SafeResourceUrl }         from '@angular/platform-browser';
+import { Component, OnInit, computed, input, output, signal } from '@angular/core';
 import { firstValueFrom }                        from 'rxjs';
-import {
-  LucideCirclePlay,
-  LucideHeart,
-  LucideInfo,
-  LucidePlus,
-  LucideStar,
-  LucideThumbsDown
-}                                                from '@lucide/angular';
-import { InteractionType, Platform, SerieDetail, SerieSummary } from '../../core/models';
+import { LucideCirclePlay }                      from '@lucide/angular';
+import { SerieDetail, SerieSummary }             from '../../core/models';
 import { resolvePosterUrl }                      from '../../core/poster-url';
 import { SeriesService }                         from '../../core/series.service';
 
@@ -25,26 +10,18 @@ import { SeriesService }                         from '../../core/series.service
   selector: 'app-series-card',
   imports: [
     CommonModule,
-    LucideCirclePlay,
-    LucideHeart,
-    LucideInfo,
-    LucidePlus,
-    LucideStar,
-    LucideThumbsDown
+    LucideCirclePlay
   ],
   templateUrl: './series-card.html'
 })
 export class SeriesCard implements OnInit {
-  readonly serie       = input.required<SerieSummary>();
-  readonly showActions = input(true);
+  readonly serie = input.required<SerieSummary>();
 
-  /** Emitido cuando el usuario hace clic en la tarjeta para ver más detalles */
+  /** Emitido cuando el usuario hace clic en la tarjeta para abrir el modal */
   readonly viewDetails = output<SerieSummary>();
-  readonly interaction = output<{ serie: SerieSummary; type: InteractionType }>();
 
-  readonly detail           = signal<SerieDetail | null>(null);
-  readonly loading          = signal(false);
-  readonly previewRequested = signal(false);
+  readonly detail  = signal<SerieDetail | null>(null);
+  readonly loading = signal(false);
 
   readonly rating = computed(() => {
     const value = this.detail()?.calificacion;
@@ -59,19 +36,11 @@ export class SeriesCard implements OnInit {
     resolvePosterUrl(this.detail()?.poster ?? this.serie().poster)
   );
 
-  readonly previewUrl = computed(() =>
-    this.safeYoutubeUrl(this.detail()?.youtube_key ?? this.serie().youtube_key)
-  );
-
-  readonly platforms = computed(() => this.resolvePlatforms());
-
-  constructor(
-    private readonly series: SeriesService,
-    private readonly sanitizer: DomSanitizer
-  ) {}
+  constructor(private readonly series: SeriesService) {}
 
   ngOnInit(): void {
-    if (!this.posterUrl()) {
+    // Si faltan datos básicos de la tarjeta, los pedimos en silencio al backend
+    if (!this.posterUrl() || !this.rating() || !this.genres()) {
       void this.loadDetails();
     }
   }
@@ -90,56 +59,8 @@ export class SeriesCard implements OnInit {
     }
   }
 
-  async preparePreview(): Promise<void> {
-    this.previewRequested.set(true);
-    await this.loadDetails();
-  }
-
-  /** Clic en la tarjeta → abrir modal de detalles */
+  /** Clic en la tarjeta → propagar el evento hacia el BrowsePage */
   onCardClick(): void {
     this.viewDetails.emit(this.serie());
-  }
-
-  send(event: Event, type: InteractionType): void {
-    event.stopPropagation();
-    this.interaction.emit({ serie: this.serie(), type });
-  }
-
-  private safeYoutubeUrl(key: string | null | undefined): SafeResourceUrl | null {
-    if (!key || !/^[\w-]+$/.test(key)) return null;
-    return this.sanitizer.bypassSecurityTrustResourceUrl(
-      `https://www.youtube.com/embed/${key}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1`
-    );
-  }
-
-  private resolvePlatforms(): Platform[] {
-    const explicit = this.detail()?.plataformas ?? this.serie().plataformas;
-    if (explicit?.length) {
-      return explicit.slice(0, 3).map(p =>
-        typeof p === 'string' ? { nombre: p as string } : p as Platform
-      );
-    }
-
-    // Hints por título cuando la API no devuelve plataformas
-    const title = (this.detail()?.titulo ?? this.serie().titulo).toLowerCase();
-    const platformHints: Array<[string, string[]]> = [
-      ['one piece',            ['Netflix', 'Crunchyroll']],
-      ['attack on titan',      ['Crunchyroll', 'Hulu']],
-      ['demon slayer',         ['Crunchyroll', 'Netflix']],
-      ['jujutsu kaisen',       ['Crunchyroll']],
-      ['naruto',               ['Crunchyroll', 'Netflix']],
-      ['death note',           ['Netflix', 'Crunchyroll']],
-      ['dragon ball',          ['Crunchyroll']],
-      ['game of thrones',      ['Max']],
-      ['house of the dragon',  ['Max']],
-      ['the witcher',          ['Netflix']],
-      ['the sandman',          ['Netflix']],
-      ['shadow and bone',      ['Netflix']],
-      ['the wheel of time',    ['Prime Video']],
-      ['the rings of power',   ['Prime Video']]
-    ];
-
-    const names = platformHints.find(([needle]) => title.includes(needle))?.[1] ?? [];
-    return names.map(nombre => ({ nombre }));
   }
 }

@@ -1,7 +1,6 @@
 <article
-  class="group relative w-40 shrink-0 overflow-visible sm:w-48"
-  (mouseenter)="preparePreview()"
-  (focusin)="preparePreview()"
+  class="group relative w-40 shrink-0 overflow-visible sm:w-48 cursor-pointer"
+  (click)="onCardClick()"
 >
   <div class="poster-shadow relative aspect-[2/3] overflow-hidden rounded-md bg-neutral-900 ring-1 ring-white/10">
     @if (posterUrl(); as poster) {
@@ -33,76 +32,10 @@
       <h3 class="mt-1 line-clamp-2 text-sm font-semibold leading-tight text-white">{{ serie().titulo }}</h3>
     </div>
 
-    <div class="absolute inset-x-2 bottom-2 z-20 max-h-[92%] overflow-hidden rounded-md bg-black/90 opacity-0 shadow-2xl ring-1 ring-white/15 transition duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
-      @if (previewRequested() && previewUrl()) {
-        <div class="aspect-video w-full overflow-hidden rounded-t-md bg-black">
-          <iframe
-            class="h-full w-full"
-            [src]="previewUrl()"
-            [title]="detail()?.titulo || serie().titulo"
-            allow="autoplay; encrypted-media; picture-in-picture"
-          ></iframe>
+    <div class="absolute inset-0 bg-black/20 opacity-0 transition duration-300 group-hover:opacity-100 flex items-center justify-center">
+        <div class="grid size-12 place-items-center rounded-full bg-black/60 text-white ring-1 ring-white/20 backdrop-blur-sm transform scale-90 group-hover:scale-100 transition duration-300">
+          <svg lucideCirclePlay class="size-6"></svg>
         </div>
-      }
-      <div class="p-3">
-      <div class="flex items-center justify-between gap-2">
-        <h4 class="line-clamp-1 text-sm font-semibold text-white">{{ detail()?.titulo || serie().titulo }}</h4>
-        <svg lucideInfo class="size-4 shrink-0 text-cyan-300"></svg>
-      </div>
-      @if (platforms().length) {
-        <div class="mt-2 flex flex-wrap gap-1">
-          @for (platform of platforms(); track platform) {
-            <span class="rounded-sm bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-100">{{ platform }}</span>
-          }
-        </div>
-      }
-      <p class="mt-2 line-clamp-4 text-xs leading-5 text-neutral-300">
-        {{ detail()?.descripcion || serie().descripcion || 'Informacion disponible al cargar detalles.' }}
-      </p>
-
-      @if (showActions()) {
-        <div class="mt-3 flex items-center gap-2">
-          <button
-            type="button"
-            title="Me gusta"
-            class="grid size-8 place-items-center rounded-md bg-white text-black transition hover:bg-emerald-300"
-            (click)="send($event, 'LE_GUSTA')"
-          >
-            <svg lucideHeart class="size-4"></svg>
-          </button>
-          <button
-            type="button"
-            title="Favorita"
-            class="grid size-8 place-items-center rounded-md bg-white/10 text-white transition hover:bg-amber-400 hover:text-black"
-            (click)="send($event, 'ES_FAVORITA')"
-          >
-            <svg lucideStar class="size-4"></svg>
-          </button>
-          <button
-            type="button"
-            title="Quiero ver"
-            class="grid size-8 place-items-center rounded-md bg-white/10 text-white transition hover:bg-cyan-400 hover:text-black"
-            (click)="send($event, 'QUIERE_VER')"
-          >
-            <svg lucidePlus class="size-4"></svg>
-          </button>
-          <button
-            type="button"
-            title="No me gusta"
-            class="grid size-8 place-items-center rounded-md bg-white/10 text-white transition hover:bg-red-500"
-            (click)="send($event, 'NO_LE_GUSTA')"
-          >
-            <svg lucideThumbsDown class="size-4"></svg>
-          </button>
-        </div>
-      }
-      </div>
     </div>
-
-    @if (detail()?.youtube_key) {
-      <div class="absolute right-2 top-2 grid size-9 place-items-center rounded-md bg-black/70 text-white ring-1 ring-white/20">
-        <svg lucideCirclePlay class="size-5"></svg>
-      </div>
-    }
   </div>
 </article>

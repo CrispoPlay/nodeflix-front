@@ -6,41 +6,83 @@
         <span class="hidden text-xl font-black sm:block">NodeFlix</span>
       </div>
 
-      <div class="relative ml-auto w-full max-w-md">
-        <label class="flex items-center gap-2 rounded-md border border-white/10 bg-white/10 px-3 py-2 focus-within:border-red-400">
-          <svg lucideSearch class="size-4 text-neutral-400"></svg>
-          <input
-            class="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-neutral-500"
-            name="search"
-            placeholder="Buscar series"
-            [(ngModel)]="searchTerm"
-            (input)="search()"
-          />
-        </label>
-        @if (searchResults().length) {
-          <div class="absolute right-0 top-12 w-full rounded-md border border-white/10 bg-neutral-950 p-3 shadow-2xl">
-            <div class="scroll-row flex gap-3 overflow-x-auto">
-              @for (serie of searchResults(); track serie.id_tmdb) {
-                <app-series-card class="scale-90 origin-top-left" [serie]="serie" (interaction)="onInteraction($event)" />
-              }
+      <div class="ml-auto flex items-center gap-3 sm:gap-6 w-full justify-end">
+        
+        <div class="relative w-full max-w-[200px] sm:max-w-md">
+          <label class="flex items-center gap-2 rounded-md border border-white/10 bg-white/10 px-3 py-2 focus-within:border-red-400">
+            <svg lucideSearch class="size-4 text-neutral-400 shrink-0"></svg>
+            <input
+              class="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-neutral-500"
+              name="search"
+              placeholder="Buscar series..."
+              [(ngModel)]="searchTerm"
+              (input)="search()"
+            />
+          </label>
+          @if (searchResults().length) {
+            <div class="absolute right-0 top-12 w-full rounded-md border border-white/10 bg-neutral-950 p-3 shadow-2xl">
+              <div class="scroll-row flex gap-3 overflow-x-auto">
+                @for (serie of searchResults(); track serie.id_tmdb) {
+                  <app-series-card class="scale-90 origin-top-left" [serie]="serie" (viewDetails)="openDetailsModal($event)" />
+                }
+              </div>
             </div>
-          </div>
-        }
-      </div>
+          }
+        </div>
 
-      <button
-        type="button"
-        title="Cerrar sesion"
-        class="grid size-10 shrink-0 place-items-center rounded-md bg-white/10 text-white transition hover:bg-white hover:text-black"
-        (click)="logout()"
-      >
-        <svg lucideLogOut class="size-5"></svg>
-      </button>
+        <button 
+          (click)="retakeOnboarding()" 
+          title="Rehacer diagnóstico inicial"
+          class="flex items-center gap-2 rounded-md bg-white/5 px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
+        >
+          <svg lucideRefreshCw class="size-4"></svg>
+          <span class="hidden sm:block">Rehacer Diagnóstico</span>
+        </button>
+
+        <div class="relative">
+          <button 
+            (click)="showLibraryDropdown.set(!showLibraryDropdown())" 
+            class="flex items-center gap-2 rounded-md bg-white/5 px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-semibold text-white transition hover:bg-white/20"
+          >
+            <svg lucideBookmark class="size-4"></svg>
+            <span class="hidden sm:block">Mi Biblioteca</span>
+            <svg lucideChevronDown class="size-4"></svg>
+          </button>
+
+          @if (showLibraryDropdown()) {
+            <div class="fixed inset-0 z-40" (click)="showLibraryDropdown.set(false)"></div>
+            
+            <div class="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-md border border-white/10 bg-neutral-900 py-1 shadow-2xl animate-[modal-in_.15s_ease-out]">
+              <button (click)="openLibrary('Mi Lista', watchlist())" class="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-neutral-300 transition hover:bg-white/10 hover:text-white">
+                <svg lucideBookmark class="size-4 text-cyan-400"></svg>
+                Mi Lista ({{ watchlist().length }})
+              </button>
+              <button (click)="openLibrary('Favoritos', favorites())" class="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-neutral-300 transition hover:bg-white/10 hover:text-white">
+                <svg lucideStar class="size-4 text-amber-400"></svg>
+                Favoritos ({{ favorites().length }})
+              </button>
+              <button (click)="openLibrary('Me Gusta', likes())" class="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-neutral-300 transition hover:bg-white/10 hover:text-white">
+                <svg lucideHeart class="size-4 text-emerald-400"></svg>
+                Me Gusta ({{ likes().length }})
+              </button>
+            </div>
+          }
+        </div>
+
+        <button
+          type="button"
+          title="Cerrar sesion"
+          class="grid size-10 shrink-0 place-items-center rounded-md bg-white/10 text-white transition hover:bg-red-500 hover:text-white"
+          (click)="logout()"
+        >
+          <svg lucideLogOut class="size-5"></svg>
+        </button>
+      </div>
     </div>
   </nav>
 
   @if (toast()) {
-    <div class="fixed right-5 top-20 z-50 flex max-w-sm items-center gap-2 rounded-md border border-emerald-300/30 bg-emerald-400 px-4 py-3 text-sm font-bold text-black shadow-2xl">
+    <div class="fixed right-5 top-20 z-50 flex max-w-sm items-center gap-2 rounded-md border border-emerald-300/30 bg-emerald-400 px-4 py-3 text-sm font-bold text-black shadow-2xl animate-[modal-in_.2s_ease-out]">
       <svg lucideCheck class="size-4"></svg>
       {{ toast() }}
     </div>
@@ -98,6 +140,14 @@
               <svg lucidePlay class="size-5"></svg>
               Trailer
             </button>
+            <button
+              type="button"
+              class="flex items-center gap-2 rounded-md bg-white/20 px-5 py-3 font-black text-white transition hover:bg-white/30"
+              (click)="openDetailsModal(hero()!)"
+            >
+              <svg lucideInfo class="size-5"></svg>
+              Más información
+            </button>
           </div>
         </div>
       </div>
@@ -107,20 +157,10 @@
           <div class="mb-3 flex items-center justify-between gap-4">
             <h2 class="text-lg font-bold text-white">Recomendaciones principales</h2>
             <div class="flex gap-2">
-              <button
-                type="button"
-                title="Mover a la izquierda"
-                class="grid size-9 place-items-center rounded-md bg-white/10 text-white ring-1 ring-white/10 transition hover:bg-white hover:text-black"
-                (click)="scrollHeroRail('left')"
-              >
+              <button (click)="scrollHeroRail('left')" class="grid size-9 place-items-center rounded-md bg-white/10 text-white ring-1 ring-white/10 transition hover:bg-white hover:text-black">
                 <svg lucideChevronLeft class="size-5"></svg>
               </button>
-              <button
-                type="button"
-                title="Mover a la derecha"
-                class="grid size-9 place-items-center rounded-md bg-white/10 text-white ring-1 ring-white/10 transition hover:bg-white hover:text-black"
-                (click)="scrollHeroRail('right')"
-              >
+              <button (click)="scrollHeroRail('right')" class="grid size-9 place-items-center rounded-md bg-white/10 text-white ring-1 ring-white/10 transition hover:bg-white hover:text-black">
                 <svg lucideChevronRight class="size-5"></svg>
               </button>
             </div>
@@ -141,12 +181,6 @@
                 <div class="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent"></div>
                 <div class="absolute inset-x-0 bottom-0 p-3">
                   <h3 class="line-clamp-1 text-sm font-black text-white">{{ serie.titulo }}</h3>
-                  <div class="mt-2 flex items-center gap-2 text-xs text-neutral-300">
-                    <span class="grid size-7 place-items-center rounded-md bg-white text-black">
-                      <svg lucidePlay class="size-4"></svg>
-                    </span>
-                    <span>Ver detalle y trailer</span>
-                  </div>
                 </div>
               </button>
             }
@@ -157,18 +191,57 @@
 
     <div class="space-y-8 pb-14">
       @if (recommendations().length) {
-        <app-series-row title="Recomendadas para ti" [items]="recommendations()" (interaction)="onInteraction($event)" />
+        <app-series-row title="Descubrimientos exactos para ti" [items]="recommendations()" (viewDetails)="openDetailsModal($event)" />
       }
-      @if (watchlist().length) {
-        <app-series-row title="Mi lista" [items]="watchlist()" (interaction)="onInteraction($event)" />
-      }
-      <app-series-row title="Top actual" [items]="popular()" (interaction)="onInteraction($event)" />
-      @if (history().length) {
-        <app-series-row title="Tu historial de nodos" [items]="history()" (interaction)="onInteraction($event)" />
-      }
+      <app-series-row title="Tendencias Top" [items]="popular()" (viewDetails)="openDetailsModal($event)" />
+      
       @for (row of genreRows(); track row.title) {
-        <app-series-row [title]="row.title" [items]="row.items" (interaction)="onInteraction($event)" />
+        <app-series-row [title]="row.title" [items]="row.items" (viewDetails)="openDetailsModal($event)" />
       }
     </div>
+  }
+
+  @if (libraryModal(); as modal) {
+    <div class="fixed inset-0 z-[150] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 sm:p-8" (click)="closeLibrary()">
+      <div class="relative w-full max-w-6xl h-full sm:h-[85vh] flex flex-col rounded-2xl bg-neutral-950 border border-white/10 shadow-2xl overflow-hidden animate-[modal-in_.2s_ease-out]" (click)="$event.stopPropagation()">
+        
+        <div class="flex items-center justify-between border-b border-white/10 px-6 sm:px-10 py-5 bg-black/60 shrink-0">
+          <h2 class="text-2xl sm:text-3xl font-black text-white flex items-center gap-3">
+            <svg lucideBookmark class="size-6 sm:size-8 text-red-500"></svg>
+            {{ modal.title }}
+            <span class="text-sm font-semibold bg-white/10 px-3 py-1 rounded-full text-neutral-300 ml-2">{{ modal.items.length }}</span>
+          </h2>
+          <button (click)="closeLibrary()" class="grid size-10 place-items-center rounded-full bg-white/10 hover:bg-white hover:text-black transition">
+            <svg lucideX class="size-5"></svg>
+          </button>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-6 sm:p-10">
+          @if (modal.items.length) {
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6 place-items-center sm:place-items-start">
+              @for (serie of modal.items; track serie.id_tmdb) {
+                <div class="w-full max-w-[190px]">
+                  <app-series-card class="w-full" [serie]="serie" (viewDetails)="openDetailsModal($event)" />
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="flex flex-col items-center justify-center h-full text-neutral-500 pt-10">
+              <svg lucideSearch class="size-20 mb-6 opacity-20"></svg>
+              <h3 class="text-xl font-bold text-neutral-300 mb-2">Colección Vacía</h3>
+              <p class="text-center max-w-md">No has agregado ninguna serie a "{{ modal.title }}" todavía. ¡Explora el menú principal y guarda tus favoritas!</p>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (selectedSerie()) {
+    <app-series-detail-modal
+      [serie]="selectedSerie()!"
+      (close)="closeDetailsModal()"
+      (interaction)="onInteraction($event)"
+    />
   }
 </main>

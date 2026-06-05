@@ -27,7 +27,11 @@
   @if (items().length) {
     <div #scroller class="scroll-row flex snap-x gap-4 overflow-x-auto px-5 pb-4 pt-1 sm:px-8">
       @for (serie of items(); track serie.id_tmdb) {
-        <app-series-card class="snap-start" [serie]="serie" (interaction)="interaction.emit($event)" />
+        <app-series-card 
+          class="snap-start" 
+          [serie]="serie" 
+          (viewDetails)="viewDetails.emit($event)" 
+        />
       }
     </div>
   } @else {

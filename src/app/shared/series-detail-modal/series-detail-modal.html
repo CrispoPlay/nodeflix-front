@@ -177,11 +177,13 @@
           Tu reacción
         </p>
         <div class="flex flex-wrap gap-2">
+          
           <button
             type="button"
-            class="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2.5
-                   text-sm font-semibold text-white ring-1 ring-white/10
-                   transition hover:bg-emerald-400 hover:text-black hover:ring-emerald-400"
+            class="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ring-1"
+            [ngClass]="hasInteraction('LE_GUSTA')
+              ? 'bg-emerald-400 text-black ring-emerald-400 hover:bg-emerald-500'
+              : 'bg-white/10 text-white ring-white/10 hover:bg-emerald-400 hover:text-black hover:ring-emerald-400'"
             (click)="send('LE_GUSTA')"
           >
             <svg lucideHeart class="size-4"></svg>
@@ -190,9 +192,10 @@
 
           <button
             type="button"
-            class="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2.5
-                   text-sm font-semibold text-white ring-1 ring-white/10
-                   transition hover:bg-amber-400 hover:text-black hover:ring-amber-400"
+            class="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ring-1"
+            [ngClass]="hasInteraction('ES_FAVORITA')
+              ? 'bg-amber-400 text-black ring-amber-400 hover:bg-amber-500'
+              : 'bg-white/10 text-white ring-white/10 hover:bg-amber-400 hover:text-black hover:ring-amber-400'"
             (click)="send('ES_FAVORITA')"
           >
             <svg lucideStar class="size-4"></svg>
@@ -201,9 +204,10 @@
 
           <button
             type="button"
-            class="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2.5
-                   text-sm font-semibold text-white ring-1 ring-white/10
-                   transition hover:bg-cyan-400 hover:text-black hover:ring-cyan-400"
+            class="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ring-1"
+            [ngClass]="hasInteraction('QUIERE_VER')
+              ? 'bg-cyan-400 text-black ring-cyan-400 hover:bg-cyan-500'
+              : 'bg-white/10 text-white ring-white/10 hover:bg-cyan-400 hover:text-black hover:ring-cyan-400'"
             (click)="send('QUIERE_VER')"
           >
             <svg lucidePlus class="size-4"></svg>
@@ -212,14 +216,16 @@
 
           <button
             type="button"
-            class="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2.5
-                   text-sm font-semibold text-white ring-1 ring-white/10
-                   transition hover:bg-red-500 hover:ring-red-500"
+            class="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ring-1"
+            [ngClass]="hasInteraction('NO_LE_GUSTA')
+              ? 'bg-red-500 text-white ring-red-500 hover:bg-red-600'
+              : 'bg-white/10 text-white ring-white/10 hover:bg-red-500 hover:ring-red-500'"
             (click)="send('NO_LE_GUSTA')"
           >
             <svg lucideThumbsDown class="size-4"></svg>
             No me gusta
           </button>
+
         </div>
       </div>
 

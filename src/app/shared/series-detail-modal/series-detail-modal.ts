@@ -43,14 +43,16 @@ import { SeriesService }                              from '../../core/series.se
   templateUrl: './series-detail-modal.html'
 })
 export class SeriesDetailModal implements OnInit, OnDestroy {
-  /** Serie básica — el modal carga el detalle completo por su cuenta */
   readonly serie       = input.required<SerieSummary>();
   readonly close       = output<void>();
   readonly interaction = output<{ serie: SerieSummary; type: InteractionType }>();
 
-  readonly detail     = signal<SerieDetail | null>(null);
+  readonly detail        = signal<SerieDetail | null>(null);
   readonly loadingDetail = signal(true);
-  readonly loadError  = signal(false);
+  readonly loadError     = signal(false);
+
+  // 🌟 NUEVO: Estado para almacenar qué interacciones ya tiene el usuario con esta serie
+  readonly activeInteractions = signal<InteractionType[]>([]);
 
   // ── Computados ────────────────────────────────────────────────────────────
 
@@ -91,8 +93,6 @@ export class SeriesDetailModal implements OnInit, OnDestroy {
     this.detail()?.descripcion ?? this.serie().descripcion ?? null
   );
 
-  // ── Constructor ───────────────────────────────────────────────────────────
-
   constructor(
     private readonly seriesService: SeriesService,
     private readonly sanitizer: DomSanitizer
@@ -101,20 +101,29 @@ export class SeriesDetailModal implements OnInit, OnDestroy {
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   async ngOnInit(): Promise<void> {
-    // Evitar scroll del body mientras el modal está abierto
     document.body.style.overflow = 'hidden';
 
+    // 1. Cargamos los detalles de la serie
     try {
-      const d = await firstValueFrom(
-        this.seriesService.getDetalles(this.serie().id_tmdb)
-      );
+      const d = await firstValueFrom(this.seriesService.getDetalles(this.serie().id_tmdb));
       this.detail.set(d);
     } catch {
       this.loadError.set(true);
-      // Usar los datos básicos que ya tenemos
       this.detail.set(this.serie() as SerieDetail);
     } finally {
       this.loadingDetail.set(false);
+    }
+
+    // 2. 🌟 NUEVO: Consultamos las interacciones en segundo plano para encender los botones
+    try {
+      const interacciones = await firstValueFrom(this.seriesService.getInteracciones());
+      const misInteracciones = interacciones
+        .filter((i: any) => i.id_tmdb === this.serie().id_tmdb)
+        .map((i: any) => i.interaccion as InteractionType);
+        
+      this.activeInteractions.set(misInteracciones);
+    } catch {
+      // Si falla, simplemente los botones se quedan apagados por defecto
     }
   }
 
@@ -124,13 +133,16 @@ export class SeriesDetailModal implements OnInit, OnDestroy {
 
   // ── Interacciones ─────────────────────────────────────────────────────────
 
+  // 🌟 NUEVO: Función auxiliar para que el HTML sepa qué pintar
+  hasInteraction(type: string): boolean {
+    return this.activeInteractions().includes(type as InteractionType);
+  }
+
   send(type: InteractionType, event?: Event): void {
     event?.stopPropagation();
     this.interaction.emit({ serie: this.serie(), type });
     this.close.emit();
   }
-
-  // ── Keyboard ──────────────────────────────────────────────────────────────
 
   @HostListener('document:keydown.escape')
   onEscape(): void {

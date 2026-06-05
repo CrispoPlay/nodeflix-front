@@ -4,14 +4,19 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import {
+  LucideBookmark,
   LucideCheck,
+  LucideChevronDown,
   LucideChevronLeft,
   LucideChevronRight,
+  LucideHeart,
   LucideLogOut,
   LucidePlay,
   LucideRefreshCw,
   LucideSearch,
-  LucideSparkles
+  LucideSparkles,
+  LucideStar,
+  LucideX
 } from '@lucide/angular';
 import { AuthService } from '../../core/auth.service';
 import { DEFAULT_GENRES, GENRE_OPTIONS } from '../../core/catalog';
@@ -21,8 +26,8 @@ import { resolvePosterUrl } from '../../core/poster-url';
 import { SeriesService } from '../../core/series.service';
 import { SeriesCard } from '../../shared/series-card/series-card';
 import { SeriesRow } from '../../shared/series-row/series-row';
+import { SeriesDetailModal } from '../../shared/series-detail-modal/series-detail-modal';
 
-// Palabras comunes en Talk Shows, Spin-offs y material de relleno
 const JUNK_WORDS = [
   'talking', 'making of', 'extra', 'behind the scenes', 'special',
   'unfiltered', 'after show', 'revelations', 'entrevista', 'documentary', 'inside'
@@ -35,31 +40,48 @@ const JUNK_WORDS = [
     FormsModule,
     SeriesCard,
     SeriesRow,
+    SeriesDetailModal,
+    LucideBookmark,
     LucideCheck,
+    LucideChevronDown,
     LucideChevronLeft,
     LucideChevronRight,
+    LucideHeart,
     LucideLogOut,
     LucidePlay,
     LucideRefreshCw,
     LucideSearch,
-    LucideSparkles
+    LucideSparkles,
+    LucideStar,
+    LucideX
   ],
   templateUrl: './browse-page.html'
 })
 export class BrowsePage implements OnInit {
   readonly loading       = signal(true);
   readonly isRefreshing  = signal(false);
+  
+  // 🌟 ESTADOS DE SERIES
   readonly recommendations = signal<SerieSummary[]>([]);
   readonly heroRail      = signal<SerieSummary[]>([]);
   readonly popular       = signal<SerieSummary[]>([]);
   readonly history       = signal<SerieSummary[]>([]);
   readonly watchlist     = signal<SerieSummary[]>([]);
+  readonly likes         = signal<SerieSummary[]>([]);
+  readonly favorites     = signal<SerieSummary[]>([]);
   readonly dislikedIds   = signal<number[]>([]);
+  
+  // 🌟 ESTADOS DE UI
   readonly genreRows     = signal<SeriesRowModel[]>([]);
   readonly hero          = signal<SerieDetail | null>(null);
   readonly searchResults = signal<SerieSummary[]>([]);
   readonly status        = signal('');
   readonly toast         = signal('');
+  readonly selectedSerie = signal<SerieSummary | null>(null);
+  
+  // 🌟 ESTADOS DEL MENÚ DESPLEGABLE
+  readonly showLibraryDropdown = signal(false);
+  readonly libraryModal = signal<{ title: string; items: SerieSummary[] } | null>(null);
 
   searchTerm = '';
 
@@ -74,6 +96,27 @@ export class BrowsePage implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await this.loadDashboard();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MANEJO DE MODALES Y MENÚS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  openDetailsModal(serie: SerieSummary): void {
+    this.selectedSerie.set(serie);
+  }
+
+  closeDetailsModal(): void {
+    this.selectedSerie.set(null);
+  }
+
+  openLibrary(title: string, items: SerieSummary[]): void {
+    this.libraryModal.set({ title, items });
+    this.showLibraryDropdown.set(false);
+  }
+
+  closeLibrary(): void {
+    this.libraryModal.set(null);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -92,6 +135,19 @@ export class BrowsePage implements OnInit {
       ]);
 
       this.dislikedIds.set(interactionState.dislikedIds);
+      this.history.set(interactionState.history);
+      this.watchlist.set(interactionState.watchlist);
+      this.likes.set(interactionState.likes);
+      this.favorites.set(interactionState.favorites);
+
+      // Creamos un pool inmenso de todos los gustos para calcular los géneros matemáticamente
+      const allInteractions = [
+        ...interactionState.history, 
+        ...interactionState.watchlist, 
+        ...interactionState.likes, 
+        ...interactionState.favorites
+      ];
+      const dynamicGenres = this.extractDynamicGenres(allInteractions);
 
       const visiblePopular = await this.hydrateMissingPosters(
         this.uniqueSeries(popular)
@@ -99,15 +155,9 @@ export class BrowsePage implements OnInit {
           .slice(0, 18)
       );
 
-      const genreRows = await this.loadGenreRows();
+      const genreRows = await this.loadGenreRows(dynamicGenres);
 
-      const personalizedPool = this.personalizedPoolFrom(
-        genreRows,
-        interactionState.history,
-        interactionState.watchlist,
-        visiblePopular
-      );
-
+      const personalizedPool = this.personalizedPoolFrom(genreRows, interactionState.history, interactionState.watchlist, visiblePopular);
       const apiRecommendations = await this.hydrateMissingPosters(
         this.uniqueSeries(recommendations)
           .filter(s => !interactionState.dislikedIds.includes(s.id_tmdb))
@@ -115,7 +165,6 @@ export class BrowsePage implements OnInit {
       );
 
       const apiIsFallbackTop = this.isSameRow(apiRecommendations, visiblePopular);
-
       const visibleRecommendations = await this.hydrateMissingPosters(
         apiIsFallbackTop
           ? personalizedPool.slice(0, 18)
@@ -129,19 +178,12 @@ export class BrowsePage implements OnInit {
       this.popular.set(visiblePopular);
       this.recommendations.set(visibleRecommendations);
       this.heroRail.set(heroRail);
-      this.history.set(interactionState.history.slice(0, 12));
-      this.watchlist.set(interactionState.watchlist.slice(0, 18));
       this.genreRows.set(genreRows);
 
-      // Hero aleatorio entre los 5 primeros para que cada carga sea fresca
       const topCandidates = heroRail.slice(0, 5);
-      const heroCandidate  =
-        topCandidates.length > 0
+      const heroCandidate  = topCandidates.length > 0
           ? topCandidates[Math.floor(Math.random() * topCandidates.length)]
-          : (visibleRecommendations[0] ??
-             interactionState.history[0] ??
-             visiblePopular[0] ??
-             null);
+          : (visibleRecommendations[0] ?? visiblePopular[0] ?? null);
 
       if (heroCandidate) {
         this.hero.set(await firstValueFrom(this.series.getDetalles(heroCandidate.id_tmdb)));
@@ -154,69 +196,7 @@ export class BrowsePage implements OnInit {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // REFRESCO SUAVE — actualiza recomendaciones y filas de género sin
-  // mostrar el spinner de carga completo ni desmontar la página
-  // ─────────────────────────────────────────────────────────────────────────
-
-  async refreshRecommendations(): Promise<void> {
-    if (this.isRefreshing()) return;
-
-    this.isRefreshing.set(true);
-
-    try {
-      // Ejecutar ambas en paralelo para minimizar el tiempo de espera
-      const [newRecs, newGenreRows, interactionState] = await Promise.all([
-        this.loadRecommendations(),
-        this.loadGenreRows(),
-        this.loadInteractionState()
-      ]);
-
-      // Actualizar disliked por si cambió mientras se refrescaba
-      this.dislikedIds.set(interactionState.dislikedIds);
-
-      const visibleRecs = await this.hydrateMissingPosters(
-        this.uniqueSeries(newRecs)
-          .filter(s => !interactionState.dislikedIds.includes(s.id_tmdb))
-          .slice(0, 18)
-      );
-
-      const personalizedPool = this.personalizedPoolFrom(
-        newGenreRows,
-        interactionState.history,
-        interactionState.watchlist,
-        this.popular()
-      );
-
-      // Reconstruir hero rail con el pool fresco
-      const newHeroRail = await this.hydrateMissingPosters(
-        this.uniqueSeries([...visibleRecs, ...personalizedPool]).slice(0, 14)
-      );
-
-      this.recommendations.set(visibleRecs);
-      this.genreRows.set(newGenreRows);
-      this.heroRail.set(newHeroRail);
-
-      // Rotar hero a uno aleatorio del nuevo rail
-      const topCandidates = newHeroRail.slice(0, 5);
-      if (topCandidates.length > 0) {
-        const newHeroSummary = topCandidates[Math.floor(Math.random() * topCandidates.length)];
-        try {
-          this.hero.set(await firstValueFrom(this.series.getDetalles(newHeroSummary.id_tmdb)));
-        } catch {
-          // mantener el hero actual si falla
-        }
-      }
-
-      this.showToast('Descubriendo nuevas recomendaciones…');
-    } catch {
-      this.showToast('No se pudo actualizar. Intenta de nuevo.');
-    } finally {
-      this.isRefreshing.set(false);
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // BÚSQUEDA
+  // BÚSQUEDA E INTERACCIONES
   // ─────────────────────────────────────────────────────────────────────────
 
   async search(): Promise<void> {
@@ -235,42 +215,54 @@ export class BrowsePage implements OnInit {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // INTERACCIONES
-  // ─────────────────────────────────────────────────────────────────────────
+ async onInteraction(event: { serie: SerieSummary; type: InteractionType }): Promise<void> {
+    // 1. Verificamos si es un Toggle Off (Si ya tenía la interacción guardada)
+    let isToggleOff = false;
+    if (event.type === 'QUIERE_VER') isToggleOff = this.watchlist().some(s => s.id_tmdb === event.serie.id_tmdb);
+    if (event.type === 'ES_FAVORITA') isToggleOff = this.favorites().some(s => s.id_tmdb === event.serie.id_tmdb);
+    if (event.type === 'LE_GUSTA') isToggleOff = this.likes().some(s => s.id_tmdb === event.serie.id_tmdb);
 
-  async onInteraction(event: { serie: SerieSummary; type: InteractionType }): Promise<void> {
+    // 2. Enviamos la petición al backend
     await this.onboarding.recordInteraction(event.serie, event.type);
-    this.showToast(this.interactionMessage(event.type));
-
-    if (event.type === 'QUIERE_VER') {
-      this.watchlist.set(this.mergeSeries(this.watchlist(), event.serie));
+    
+    // 3. Mostramos el mensaje correcto
+    if (isToggleOff) {
+      this.showToast('Se removió de tu colección.');
+    } else {
+      this.showToast(this.interactionMessage(event.type));
     }
 
     if (event.type === 'NO_LE_GUSTA') {
       this.dislikedIds.set(Array.from(new Set([...this.dislikedIds(), event.serie.id_tmdb])));
       this.recommendations.set(this.recommendations().filter(s => s.id_tmdb !== event.serie.id_tmdb));
       this.popular.set(this.popular().filter(s => s.id_tmdb !== event.serie.id_tmdb));
-      this.genreRows.set(
-        this.genreRows().map(row => ({
-          ...row,
-          items: row.items.filter(s => s.id_tmdb !== event.serie.id_tmdb)
-        }))
-      );
-    } else {
-      this.recommendations.set(
-        await this.hydrateMissingPosters((await this.loadRecommendations()).slice(0, 18))
-      );
     }
 
-    const interactionState = await this.loadInteractionState();
-    this.history.set(interactionState.history.slice(0, 12));
-    this.watchlist.set(interactionState.watchlist.slice(0, 18));
-    this.dislikedIds.set(interactionState.dislikedIds);
+    // Refrescamos silenciosamente todas las colecciones
+    const state = await this.loadInteractionState();
+    this.history.set(state.history);
+    this.watchlist.set(state.watchlist);
+    this.likes.set(state.likes);
+    this.favorites.set(state.favorites);
+    this.dislikedIds.set(state.dislikedIds);
+
+    // Si el modal de la biblioteca está abierto, actualizamos su contenido en vivo
+    const currentModal = this.libraryModal();
+    if (currentModal) {
+       if (currentModal.title === 'Mi Lista') this.libraryModal.set({ ...currentModal, items: this.watchlist() });
+       else if (currentModal.title === 'Favoritos') this.libraryModal.set({ ...currentModal, items: this.favorites() });
+       else if (currentModal.title === 'Me Gusta') this.libraryModal.set({ ...currentModal, items: this.likes() });
+    }
+
+    if (event.type === 'LE_GUSTA' || event.type === 'ES_FAVORITA') {
+      const allInteractions = [...state.history, ...state.watchlist, ...state.likes, ...state.favorites];
+      const dynamicGenres = this.extractDynamicGenres(allInteractions);
+      this.loadGenreRows(dynamicGenres).then(newRows => this.genreRows.set(newRows));
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // HERO
+  // HERO & NAVEGACIÓN
   // ─────────────────────────────────────────────────────────────────────────
 
   playHero(): void {
@@ -291,22 +283,13 @@ export class BrowsePage implements OnInit {
   scrollHeroRail(direction: 'left' | 'right'): void {
     const element = this.heroScroller?.nativeElement;
     if (!element) return;
-
     const distance = Math.max(320, element.clientWidth * 0.78);
     element.scrollBy({ left: direction === 'right' ? distance : -distance, behavior: 'smooth' });
   }
 
-  heroGenres(): string {
-    return this.hero()?.generos?.map(g => g.name).slice(0, 3).join(' / ') ?? '';
-  }
-
-  heroPosterUrl(): string | null {
-    return resolvePosterUrl(this.hero()?.poster);
-  }
-
-  posterUrl(serie: SerieSummary): string | null {
-    return resolvePosterUrl(serie.poster);
-  }
+  heroGenres(): string { return this.hero()?.generos?.map(g => g.name).slice(0, 3).join(' / ') ?? ''; }
+  heroPosterUrl(): string | null { return resolvePosterUrl(this.hero()?.poster); }
+  posterUrl(serie: SerieSummary): string | null { return resolvePosterUrl(serie.poster); }
 
   async logout(): Promise<void> {
     this.auth.logout();
@@ -314,181 +297,171 @@ export class BrowsePage implements OnInit {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // PRIVADOS
+  // LÓGICA INTERNA PRIVADA
   // ─────────────────────────────────────────────────────────────────────────
 
   private async loadRecommendations(): Promise<SerieSummary[]> {
     try {
       return await firstValueFrom(this.series.getRecomendaciones());
     } catch {
-      // Página aleatoria como fallback para variar incluso sin historial
       const page = 1 + Math.floor(Math.random() * 3);
       return await firstValueFrom(this.series.getPopulares(page));
     }
   }
 
-  private async loadInteractionState(): Promise<{
+private async loadInteractionState(): Promise<{
     history: SerieSummary[];
     watchlist: SerieSummary[];
+    favorites: SerieSummary[];
+    likes: SerieSummary[];
     dislikedIds: number[];
   }> {
     try {
       const interactions = await firstValueFrom(this.series.getInteracciones());
       const history: SerieSummary[] = [];
       const watchlist: SerieSummary[] = [];
+      const favorites: SerieSummary[] = [];
+      const likes: SerieSummary[] = [];
       const dislikedIds: number[] = [];
 
-      for (const item of interactions.slice(0, 10)) {
-        try {
-          const detail = await firstValueFrom(this.series.getDetalles(item.id_tmdb));
-          history.push(detail);
-          if (item.interaccion === 'QUIERE_VER' || item.interaccion === 'ES_FAVORITA') {
-            watchlist.push(detail);
-          }
-        } catch {
-          history.push(item);
-          if (item.interaccion === 'QUIERE_VER' || item.interaccion === 'ES_FAVORITA') {
-            watchlist.push(item);
-          }
+      // Aumentamos el corte a 50 porque ahora una serie puede ocupar hasta 3 registros en la API
+      const recentInteractions = interactions.slice(0, 50);
+      const detailPromises = recentInteractions.map(item =>
+        firstValueFrom(this.series.getDetalles(item.id_tmdb)).catch(() => item)
+      );
+
+      const details = await Promise.all(detailPromises);
+
+      for (let i = 0; i < recentInteractions.length; i++) {
+        const item = recentInteractions[i];
+        const detail = details[i];
+
+        // 🌟 EVITAMOS DUPLICADOS EN EL HISTORIAL (Crucial para que Angular no rompa la cuadrícula)
+        if (!history.find(h => h.id_tmdb === detail.id_tmdb)) {
+           history.push(detail);
         }
 
-        if (item.interaccion === 'NO_LE_GUSTA') {
-          dislikedIds.push(item.id_tmdb);
-        }
+        if (item.interaccion === 'QUIERE_VER') watchlist.push(detail);
+        if (item.interaccion === 'ES_FAVORITA') favorites.push(detail);
+        if (item.interaccion === 'LE_GUSTA') likes.push(detail);
+        if (item.interaccion === 'NO_LE_GUSTA') dislikedIds.push(item.id_tmdb);
       }
 
-      return { history, watchlist, dislikedIds };
+      return { history, watchlist, favorites, likes, dislikedIds };
     } catch {
-      return { history: [], watchlist: [], dislikedIds: [] };
+      return { history: [], watchlist: [], favorites: [], likes: [], dislikedIds: [] };
     }
   }
 
-  /**
-   * RANDOM WALK EN EL CATÁLOGO FRONTAL
-   *
-   * Cada llamada:
-   *   1. Mezcla géneros del usuario con 1-2 géneros de descubrimiento aleatorios
-   *   2. Selecciona 4 géneros al azar del pool resultante
-   *   3. Para cada género, elige 5 queries al azar (no siempre las primeras)
-   *   4. Toma 1-2 resultados al azar de los primeros 6 de cada búsqueda
-   *
-   * Esto garantiza que cada refresh muestre una combinación única de series.
-   */
-  private async loadGenreRows(): Promise<SeriesRowModel[]> {
-    const userGenres =
-      this.onboarding.ensureGenres().length
-        ? this.onboarding.ensureGenres()
-        : DEFAULT_GENRES;
+  private extractDynamicGenres(allUserSeries: SerieSummary[]): any[] {
+    const genreCounts = new Map<string, number>();
+    const uniqueList = this.uniqueSeries(allUserSeries);
 
-    // Géneros de descubrimiento: géneros del catálogo completo que el usuario
-    // no seleccionó explícitamente — añade serendipia al feed
-    const discoveryPool = GENRE_OPTIONS.filter(
-      g => !userGenres.some(ug => ug.id === g.id)
-    );
-    const discoveryGenres = this.randomSample(discoveryPool, Math.min(2, discoveryPool.length));
+    uniqueList.forEach((serie: any) => {
+      if (serie.generos) {
+        serie.generos.forEach((g: any) => genreCounts.set(g.name, (genreCounts.get(g.name) || 0) + 1));
+      }
+    });
 
-    // Pool final: géneros del usuario + descubrimiento, elegir 4 al azar
-    const allCandidates  = [...userGenres, ...discoveryGenres];
-    const selectedGenres = this.randomSample(allCandidates, Math.min(4, allCandidates.length));
+    const sortedGenreNames = Array.from(genreCounts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(entry => entry[0]);
 
+    const dynamicGenres = sortedGenreNames
+      .map(name => GENRE_OPTIONS.find(g => g.name.toLowerCase() === name.toLowerCase()))
+      .filter(g => !!g);
+
+    const onboardingGenres = this.onboarding.ensureGenres();
+    const finalGenres = [...dynamicGenres];
+    
+    onboardingGenres.forEach(og => {
+      if (!finalGenres.find(g => g.id === og.id)) finalGenres.push(og);
+    });
+
+    return finalGenres.length ? finalGenres : DEFAULT_GENRES;
+  }
+
+  private async loadGenreRows(userGenres: any[]): Promise<SeriesRowModel[]> {
     const rows: SeriesRowModel[] = [];
+    const topIds = userGenres.slice(0, 4).map(g => g.id);
+    const topGenres = userGenres.slice(0, 4);
+    
+    const discoveryPool = GENRE_OPTIONS.filter(g => !topIds.includes(g.id));
+    const discoveryGenres = discoveryPool.sort(() => Math.random() - 0.5).slice(0, 2);
+
+    const mixedGenres = [...topGenres, ...discoveryGenres].sort(() => Math.random() - 0.5);
+    const numRows = Math.floor(Math.random() * 3) + 3;
+    const selectedGenres = mixedGenres.slice(0, numRows);
 
     for (const genre of selectedGenres) {
-      const seen  = new Set<number>();
+      const seen = new Set<number>();
       const items: SerieSummary[] = [];
+      const shuffledQueries = [...genre.queries].sort(() => Math.random() - 0.5);
+      const numQueries = Math.floor(Math.random() * 3) + 4;
 
-      // Queries aleatorias del género (no siempre las primeras N)
-      const randomQueries = this.randomSample(genre.queries, Math.min(5, genre.queries.length));
-
-      for (const query of randomQueries) {
+      for (const query of shuffledQueries.slice(0, numQueries)) {
         try {
           const found = await firstValueFrom(this.series.searchSeries(query));
+          const cleanFound = found.filter((s: SerieSummary) => !JUNK_WORDS.some(kw => s.titulo.toLowerCase().includes(kw)));
+          const randomizedSeries = cleanFound.sort(() => Math.random() - 0.5);
+          const numItems = Math.floor(Math.random() * 4) + 1;
 
-          // Filtrar material de relleno
-          const cleanFound = found.filter(s => {
-            const titleLower = s.titulo.toLowerCase();
-            return !JUNK_WORDS.some(kw => titleLower.includes(kw));
-          });
-
-          // Tomar 1-2 resultados aleatorios del top-6 (no siempre los primeros 2)
-          const topCandidates = cleanFound.slice(0, 6);
-          const sampleSize    = 1 + Math.floor(Math.random() * 2); // 1 ó 2
-          const sampled       = this.randomSample(topCandidates, Math.min(sampleSize, topCandidates.length));
-
-          for (const item of sampled) {
+          for (const item of randomizedSeries.slice(0, numItems)) {
             if (!seen.has(item.id_tmdb)) {
               seen.add(item.id_tmdb);
               items.push(item);
             }
           }
-        } catch {
-          continue;
-        }
+        } catch { continue; }
       }
 
-      const visibleItems = await this.hydrateMissingPosters(
-        items
-          .filter(item => !this.dislikedIds().includes(item.id_tmdb))
-          .slice(0, 14)
-      );
+      const maxRowSize = Math.floor(Math.random() * 7) + 10; 
+      const visibleItems = await this.hydrateMissingPosters(items.filter((item) => !this.dislikedIds().includes(item.id_tmdb)).slice(0, maxRowSize));
 
       if (visibleItems.length > 0) {
+        const isDiscovery = !topIds.includes(genre.id);
         rows.push({
-          title:  `${genre.name} · para ti`,
-          items:  visibleItems,
+          title: isDiscovery ? `Explora algo nuevo: ${genre.name}` : `Porque te gusta: ${genre.name}`,
+          items: visibleItems,
           accent: genre.accent
         });
       }
     }
-
     return rows;
   }
 
   private async hydrateMissingPosters(items: SerieSummary[]): Promise<SerieSummary[]> {
     return Promise.all(
-      items.map(async serie => {
+      items.map(async (serie) => {
         if (resolvePosterUrl(serie.poster)) return serie;
-
         try {
           const detail = await firstValueFrom(this.series.getDetalles(serie.id_tmdb));
           return {
             ...serie,
-            poster:       detail.poster ?? serie.poster,
-            descripcion:  serie.descripcion ?? detail.descripcion,
-            youtube_key:  serie.youtube_key ?? detail.youtube_key,
-            plataformas:  serie.plataformas?.length ? serie.plataformas : detail.plataformas
+            poster: detail.poster ?? serie.poster,
+            descripcion: serie.descripcion ?? detail.descripcion,
+            youtube_key: serie.youtube_key ?? detail.youtube_key,
+            plataformas: serie.plataformas?.length ? serie.plataformas : detail.plataformas
           };
-        } catch {
-          return serie;
-        }
+        } catch { return serie; }
       })
     );
   }
 
   private mergeSeries(items: SerieSummary[], serie: SerieSummary): SerieSummary[] {
-    return [serie, ...items.filter(i => i.id_tmdb !== serie.id_tmdb)];
+    return [serie, ...items.filter((item) => item.id_tmdb !== serie.id_tmdb)];
   }
 
-  private personalizedPoolFrom(
-    genreRows:  SeriesRowModel[],
-    history:    SerieSummary[],
-    watchlist:  SerieSummary[],
-    popular:    SerieSummary[]
-  ): SerieSummary[] {
-    const topIds    = new Set(popular.slice(0, 10).map(s => s.id_tmdb));
-    const candidates = this.uniqueSeries([
-      ...watchlist,
-      ...history,
-      ...genreRows.flatMap(row => row.items)
-    ]).filter(s => !this.dislikedIds().includes(s.id_tmdb));
-    const nonTop = candidates.filter(s => !topIds.has(s.id_tmdb));
-
+  private personalizedPoolFrom(genreRows: SeriesRowModel[], history: SerieSummary[], watchlist: SerieSummary[], popular: SerieSummary[]): SerieSummary[] {
+    const topIds = new Set(popular.slice(0, 10).map((serie) => serie.id_tmdb));
+    const candidates = this.uniqueSeries([...watchlist, ...history, ...genreRows.flatMap((row) => row.items)]).filter((serie) => !this.dislikedIds().includes(serie.id_tmdb));
+    const nonTop = candidates.filter((serie) => !topIds.has(serie.id_tmdb));
     return nonTop.length ? nonTop : candidates;
   }
 
   private uniqueSeries(items: SerieSummary[]): SerieSummary[] {
     const seen = new Set<number>();
-    return items.filter(item => {
+    return items.filter((item) => {
       if (seen.has(item.id_tmdb)) return false;
       seen.add(item.id_tmdb);
       return true;
@@ -497,25 +470,17 @@ export class BrowsePage implements OnInit {
 
   private isSameRow(first: SerieSummary[], second: SerieSummary[]): boolean {
     if (!first.length || !second.length) return false;
-    const firstIds  = first.slice(0, 8).map(i => i.id_tmdb);
-    const secondIds = new Set(second.slice(0, 8).map(i => i.id_tmdb));
-    const overlap   = firstIds.filter(id => secondIds.has(id)).length;
+    const firstIds = first.slice(0, 8).map((item) => item.id_tmdb);
+    const secondIds = new Set(second.slice(0, 8).map((item) => item.id_tmdb));
+    const overlap = firstIds.filter((id) => secondIds.has(id)).length;
     return overlap >= Math.min(5, firstIds.length);
-  }
-
-  /**
-   * Fisher-Yates shuffle aplicado via sort(rand) — toma `count` elementos
-   * del array en orden aleatorio sin repetición.
-   */
-  private randomSample<T>(array: T[], count: number): T[] {
-    return [...array].sort(() => Math.random() - 0.5).slice(0, count);
   }
 
   private interactionMessage(type: InteractionType): string {
     const messages: Record<InteractionType, string> = {
-      LE_GUSTA:    'Se guardó como gusto para tus recomendaciones.',
+      LE_GUSTA: 'Se guardó como gusto para tus recomendaciones.',
       ES_FAVORITA: 'Agregada a favoritos y Mi lista.',
-      QUIERE_VER:  'Agregada a Mi lista.',
+      QUIERE_VER: 'Agregada a Mi lista.',
       NO_LE_GUSTA: 'Marcada como no me gusta. No la volveremos a sugerir.'
     };
     return messages[type];
@@ -523,6 +488,10 @@ export class BrowsePage implements OnInit {
 
   private showToast(message: string): void {
     this.toast.set(message);
-    window.setTimeout(() => this.toast.set(''), 2600);
+    window.setTimeout(() => this.toast.set(''), 2400);
+  }
+
+  async retakeOnboarding(): Promise<void> {
+    await this.router.navigate(['/clips']);
   }
 }
